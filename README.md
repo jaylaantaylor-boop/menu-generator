@@ -1,4 +1,4 @@
-# Mamma Mia Menu Generator
+# Menu Generator
 
 Builds the weekly menu for Panatieri's on Wheels and downloads it as a
 2304 x 1728 PNG, ready to post.
@@ -18,7 +18,6 @@ After uploading, the repo root should look exactly like this:
     icon-180.png
     icon-192.png
     icon-512.png
-    .nojekyll
     README.md
 
 ## Notes

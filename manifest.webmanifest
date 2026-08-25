@@ -1,5 +1,5 @@
 {
-  "name": "Mamma Mia Menu Generator",
+  "name": "Menu Generator",
   "short_name": "Menus",
   "description": "Build the weekly Panatieri's on Wheels menu and download it as a PNG.",
   "start_url": "./index.html",
