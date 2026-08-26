@@ -48,6 +48,18 @@ button.go:hover{filter:brightness(1.1)}
 .slot textarea.desc{color:#454545;font-weight:400;text-transform:none;font-style:italic;font-size:11.5px;min-height:34px}
 .slot input.allerg{width:100%;border:1px solid #d8d8de;border-radius:7px;padding:4px 7px;font-size:10.5px;font-weight:800;letter-spacing:.3px;color:#111}
 .slot input.allerg::placeholder{font-weight:500;color:#a0a0aa;letter-spacing:0}
+.rate{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+.stars{display:flex;align-items:center;gap:1px}
+.stars .st{border:0;background:none;padding:0 1px;font-size:15px;line-height:1;color:#d3d3d9;cursor:pointer}
+.stars .st.on{color:#E8A317}
+.stars .st:hover{color:#E8A317}
+.rlab{font-size:9.5px;font-weight:700;color:var(--muted);margin-left:5px;letter-spacing:.3px}
+.diffs{display:flex;gap:3px}
+.diffs .df{flex:1;border:1px solid #dcdce2;background:#fff;color:#9a9aa4;border-radius:5px;
+  padding:2px 0;font-size:8.5px;font-weight:800;letter-spacing:.4px}
+.diffs .df.easy.on{background:#2E7D46;border-color:#2E7D46;color:#fff}
+.diffs .df.med.on{background:#C8901A;border-color:#C8901A;color:#fff}
+.diffs .df.hard.on{background:#C0392B;border-color:#C0392B;color:#fff}
 .libitem .ld{font-size:10.5px;color:#666;font-style:italic;line-height:1.3}
 .libitem .la{font-size:10px;color:#111;font-weight:800;letter-spacing:.2px}
 .liblist{max-height:260px}
@@ -64,6 +76,10 @@ button.go:hover{filter:brightness(1.1)}
 .panel[open]>summary::after{content:"▴"}
 .panel .body{padding:0 16px 16px;border-top:1px solid var(--line)}
 canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:#fff}
+.seg{display:inline-flex;border:1px solid #d3d3d9;border-radius:9px;overflow:hidden;margin:8px 0}
+.seg button{border:0;border-radius:0;padding:6px 16px;font-size:12.5px;font-weight:700;background:#fff;color:var(--muted)}
+.seg button+button{border-left:1px solid #d3d3d9}
+.seg button.on{background:var(--red);color:#fff}
 .previewwrap{margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
 .previewwrap .head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .previewwrap .head h2{margin:0;font-size:14px;font-weight:800}
@@ -126,6 +142,11 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
   <div class="previewwrap">
     <div class="head">
       <div><h2 style="margin:0">Preview <span class="chip" id="sizeChip">2304 × 1728</span></h2>
+        <div class="seg" id="viewSeg">
+          <button class="on" data-view="menu">Menu</button>
+          <button data-view="sheet">Order sheet</button>
+          <button data-view="daily">Daily prep</button>
+        </div>
         <div class="legend" id="legend"></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button id="saveHist">✓ Save this week to history</button>
@@ -134,6 +155,8 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
       </div>
     </div>
     <canvas id="cv" width="2304" height="1728"></canvas>
+    <canvas id="cv2" width="2304" height="1728" style="display:none"></canvas>
+    <canvas id="cv3" width="2304" height="1728" style="display:none"></canvas>
   </div>
 
   <details class="panel">
@@ -880,12 +903,26 @@ function applyDesc(lib){
 
 /* ================= storage (namespaced: shares an origin with the
    inventory PWAs if this is ever hosted on GitHub Pages) ========= */
-const K = {lib:"mmt_menugen_v1_lib", hist:"mmt_menugen_v1_history", state:"mmt_menugen_v1_state"};
+const K = {lib:"mmt_menugen_v1_lib", hist:"mmt_menugen_v1_history", state:"mmt_menugen_v1_state",
+           meta:"mmt_menugen_v1_meta"};
 const load = (k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } };
 const save = (k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
 
 let LIB  = applyDesc(applyOffTheme(load(K.lib, null) || JSON.parse(JSON.stringify(BASE_LIB))));
 let HIST = load(K.hist, null) || JSON.parse(JSON.stringify(SEED_HISTORY));
+
+/* Per-dish rating and difficulty, keyed by dish name so it carries over
+   every time that dish comes back round.  Both start empty on purpose:
+   nobody knows what the crew liked except the kitchen. */
+let META = load(K.meta, null) || {};
+const DIFFS = {easy:{label:"EASY", col:"#2E7D46"}, med:{label:"MED", col:"#C8901A"}, hard:{label:"HARD", col:"#C0392B"}};
+function metaFor(name){ return META[(name||"").trim().toUpperCase()] || {r:0, f:""}; }
+function setMeta(name, patch){
+  const k=(name||"").trim().toUpperCase(); if(!k) return;
+  META[k] = Object.assign({r:0,f:""}, META[k], patch);
+  if(!META[k].r && !META[k].f) delete META[k];
+  save(K.meta, META);
+}
 
 /* ================= date helpers ================= */
 const MON_FULL=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
@@ -987,7 +1024,26 @@ function buildGrid(){
       const ag=el("input","allerg"); ag.type="text"; ag.value=s.a||"";
       ag.placeholder="Allergens, e.g. GLUTEN, DAIRY  (or NONE)";
       ag.oninput=()=>{ s.a=ag.value.toUpperCase(); render(); persist(); };
+
+      /* how much the crew liked it, and how hard it is to make */
+      const rate=el("div","rate");
+      const stars=el("div","stars"); stars.title="How well it went down";
+      const drawStars=()=>{ const m=metaFor(s.t); stars.innerHTML="";
+        for(let n=1;n<=5;n++){ const b=el("button",n<=m.r?"st on":"st","★");
+          b.onclick=()=>{ const cur=metaFor(s.t).r; setMeta(s.t,{r: cur===n?0:n}); buildGrid(); render(); };
+          stars.appendChild(b); }
+        const lbl=el("span","rlab", m.r?m.r+"/5":"not rated"); stars.appendChild(lbl); };
+      drawStars();
+      const diff=el("div","diffs"); diff.title="How hard it is to make";
+      Object.entries(DIFFS).forEach(([k,d])=>{
+        const b=el("button","df "+k+(metaFor(s.t).f===k?" on":""), d.label);
+        b.onclick=()=>{ const cur=metaFor(s.t).f; setMeta(s.t,{f: cur===k?"":k}); buildGrid(); render(); };
+        diff.appendChild(b);
+      });
+      rate.appendChild(stars); rate.appendChild(diff);
+
       wrap.appendChild(lab); wrap.appendChild(ta); wrap.appendChild(de); wrap.appendChild(ag);
+      wrap.appendChild(rate);
       slots.appendChild(wrap);
     });
     card.appendChild(slots);
@@ -1222,6 +1278,8 @@ function render(){
   else { c.strokeStyle=BLK; c.lineWidth=5; rr(c,1165,FOOTY,1021,FOOTH,34); c.stroke(); }
 
   buildText();
+  if(typeof renderSheet==="function") renderSheet();
+  if(typeof renderDaily==="function") renderDaily();
 }
 
 /* ================= text version ================= */
@@ -1249,7 +1307,419 @@ function buildText(){
       const al=allergenLine(state.sat["a"+i]); if(al) s+="      "+al+"\n"; });
     s+="  DESSERT AVAILABLE\n  FRUIT AVAILABLE\n";
   }
-  document.getElementById("txtOut").value=s;
+  window.__menuText = s;
+  if(typeof VIEW==="undefined" || VIEW==="menu") document.getElementById("txtOut").value=s;
+}
+
+const PREP = /^(slow cooked |slow braised |plant based |house |jumbo |light |mixed |fresh |crispy |crisp |grilled |fried |baked |roasted |slow |seasoned |sauteed |braised |smoked |chopped |shredded |pulled |melted |breaded |marinated |spiced |blackened |charred |sliced |shaved |crunchy |warm |soft |toasted |creamy |savory |double |two |layered |stuffed |rolled |glazed |battered |beer battered |egg battered |grated |garlicky |chickpea |spicy |smoky |boneless |classic |regular |plain |simple |seasonal |mild |chilled |cold )+/;
+const DROP = new Set(["dressing on the side","dressing","the side","side","both","the cob","no toppings",
+  "dipping","the side of","pastry","a folded pastry turnover","a pastry turnover","pastry turnovers","a flaky crust",
+  "no common allergens","grilled","pressed","filling","sauce","toppings","rolls side","a crisp tortilla"]);
+const PRECLEAN = [[/mac and cheese/g,"macaroni"],[/sweet and sour/g," "],[/corn on the cob/g,"corn"],
+  [/sweet chili/g,"sweet-chili"],[/\b(a )?side of /g,""],[/\bhalf a /g,""],[/\bfor dipping\b/g,""],[/\bon the side\b/g,""],
+  [/\bserved\b/g,""],[/\btossed\b/g,""],[/\bfilled\b/g,""],[/\bstuffed\b/g,""],[/\bbaked\b/g,""],
+  [/\bmelted\b/g,""],[/\bglazed\b/g,""],[/\bstir fried\b/g,""],[/\bwrapped tight\b/g,""]];
+const PLURAL = {onions:"onion",peppers:"pepper",tomatoes:"tomato",cucumbers:"cucumber",carrots:"carrot",
+  olives:"olive",mushrooms:"mushroom",pickles:"pickle",potatoes:"potato",eggs:"egg",apples:"apple",
+  walnuts:"walnut",beans:"beans",noodles:"noodles",shells:"shells",wings:"wings",ribs:"ribs",fries:"fries"};
+const SYN = {
+  "a roll":"rolls","a sub":"sub rolls","a sub roll":"sub rolls","a toasted roll":"rolls","a hoagie roll":"hoagie rolls",
+  "a wrap":"flour wraps","a flour wrap":"flour wraps","a flour tortilla":"flour tortillas","flour tortilla":"flour tortillas",
+  "corn tortillas":"corn tortillas","a tortilla":"flour tortillas","a crisp flour tortilla":"flour tortillas",
+  "a grilled flour tortilla":"flour tortillas","a toasted tortilla":"flour tortillas","a soft tortilla":"flour tortillas",
+  "pita":"pita bread","pita bread":"pita bread","a brioche bun":"brioche buns","brioche":"brioche buns",
+  "a portuguese roll":"portuguese rolls","sourdough":"sourdough","rye":"rye bread","ciabatta":"ciabatta",
+  "a biscuit":"biscuits","a dinner roll":"dinner rolls","a corn muffin":"corn muffins","cornbread":"cornbread",
+  "corn bread":"cornbread","a bread roll":"rolls","toasted bread":"bread","a kaiser":"kaiser rolls",
+  "steak":"steak","beef patty":"ground beef","beef":"beef","chicken":"chicken","chicken cutlet":"chicken cutlets",
+  "turkey patty":"ground turkey","veggie patty":"veggie patties","patty":"ground beef",
+  "american":"american cheese","american cheese":"american cheese","swiss":"swiss cheese","provolone":"provolone",
+  "cheddar":"cheddar","white cheddar":"white cheddar","pepper jack":"pepper jack","blue cheese":"blue cheese",
+  "grated cheese":"grated cheese","vegan cheese":"vegan cheese","vegan mozzarella":"vegan cheese",
+  "vegan provolone":"vegan cheese","vegan ricotta":"vegan ricotta","cotija":"cotija","cotija cheese":"cotija",
+  "queso":"queso","brie":"brie","feta":"feta","ricotta":"ricotta","mozzarella":"mozzarella","parmesan":"parmesan",
+  "tzatziki":"tzatziki","tzatziki sauce":"tzatziki","marinara":"marinara","marinara sauce":"marinara",
+  "tomato sauce":"marinara","meat sauce":"meat sauce","bbq sauce":"bbq sauce","buffalo sauce":"buffalo sauce",
+  "buffalo":"buffalo sauce","ranch":"ranch","chipotle mayo":"chipotle mayo","mayo":"mayo","aioli":"garlic aioli",
+  "garlic aioli":"garlic aioli","pesto":"pesto","basil pesto":"basil pesto","balsamic":"balsamic",
+  "balsamic glaze":"balsamic glaze","vinaigrette":"vinaigrette","caesar dressing":"caesar dressing",
+  "honey mustard":"honey mustard","mustard":"mustard","dijon mustard":"dijon mustard","hummus":"hummus",
+  "tahini":"tahini","tahini sauce":"tahini","gravy":"gravy","pan gravy":"gravy","au jus":"au jus",
+  "sour cream":"sour cream","crema":"crema","avocado crema":"crema","cilantro crema":"crema","chipotle crema":"crema",
+  "rice":"rice","white rice":"rice","jasmine rice":"rice","cilantro lime rice":"rice","fried rice":"rice",
+  "black beans":"black beans","refried beans":"refried beans","baked beans":"baked beans","chickpeas":"chickpeas",
+  "lentils":"lentils","pasta":"pasta","penne":"penne","rigatoni":"rigatoni","linguine":"linguine",
+  "egg noodles":"egg noodles","polenta":"polenta","stuffing":"stuffing","mac salad":"macaroni",
+  "mac and cheese":"macaroni","potato salad":"potatoes","mashed potato":"potatoes","mashed potatoes":"potatoes",
+  "waffle fries":"waffle fries","chips":"chips","potato wedges":"potato wedges","onion rings":"onion rings",
+  "tortilla strips":"tortilla strips","tortilla chips":"tortilla chips","croutons":"croutons",
+  "spring roll":"spring rolls","veggie spring roll":"spring rolls","rice balls":"rice balls",
+  "romaine":"romaine","lettuce":"lettuce","iceberg wedge":"iceberg","greens":"mixed greens","mixed greens":"mixed greens",
+  "crisp greens":"mixed greens","spinach":"spinach","kale":"kale","cabbage":"cabbage","slaw":"slaw","coleslaw":"slaw",
+  "red onion":"red onion","caramelized onion":"onion","caramelized onions":"onion","pickled onion":"red onion",
+  "roasted peppers":"roasted peppers","cherry peppers":"cherry peppers","hot cherry peppers":"cherry peppers",
+  "long hots":"cherry peppers","jalapenos":"jalapeno","portobello":"portobello","portobello mushroom":"portobello",
+  "wild mushroom ragout":"mushroom","sun dried tomato":"sun dried tomato","sun dried tomatoes":"sun dried tomato",
+  "cherry tomatoes":"cherry tomato","pico":"pico de gallo","street corn":"corn","corn on the cob":"corn",
+  "sweet potato":"sweet potato","broccoli":"broccoli","broccoli rabe":"broccoli rabe","zucchini":"zucchini",
+  "celery":"celery","basil":"basil","cilantro":"cilantro","garlic":"garlic","oil":"olive oil","olive oil":"olive oil",
+  "lime":"lime","pineapple":"pineapple","avocado":"avocado","dried cranberry":"dried cranberry",
+  "bacon":"bacon","ham":"ham","prosciutto":"prosciutto","salami":"salami","capicola":"capicola",
+  "pepperoni":"pepperoni","sausage":"italian sausage","italian sausage":"italian sausage","chorizo":"chorizo",
+  "vegan chorizo":"vegan chorizo","hot dog":"hot dogs","beef hot dog":"hot dogs","frankfurter":"hot dogs",
+  "meatballs":"meatballs","brisket":"brisket","corned beef":"corned beef","roast beef":"roast beef",
+  "roast pork":"roast pork","pork loin":"pork loin","short rib":"short rib","lamb":"lamb","turkey":"turkey",
+  "tuna salad":"tuna","tuna":"tuna","white fish":"white fish","fish":"white fish","shrimp":"shrimp",
+  "tofu":"tofu","seitan":"seitan","jackfruit":"jackfruit","falafel":"falafel","impossible":"impossible patties",
+  "beyond":"beyond patties","chicken salad":"chicken","egg":"eggs","scrambled egg":"eggs","fried egg":"eggs",
+  "sauerkraut":"sauerkraut","consomme":"consomme","hot honey":"honey","honey":"honey","molasses":"molasses",
+  "vodka cream sauce":"vodka sauce","alfredo":"cream","cream sauce":"cream","cream":"cream","butter":"butter",
+  "lemon butter":"butter","garlic butter":"butter","white wine":"white wine","marsala wine":"marsala wine",
+  "bourbon":"bourbon","soy":"soy sauce","soy sauce":"soy sauce","teriyaki":"teriyaki sauce","ginger":"ginger",
+  "sesame":"sesame seeds","curry":"curry paste","chipotle":"chipotle","chili":"chili powder"
+};
+const MERGE={"caesar":"caesar dressing","cutlet":"chicken cutlets","chicken gyro":"chicken","steak gyro":"steak","beef meatloaf":"meatloaf","chipotle shrimp":"shrimp","chipotle steak":"steak","chipotle chicken":"chicken","ginger soy chicken":"chicken","honey garlic chicken":"chicken","orange chicken":"chicken","citrus marinated grilled chicken":"chicken","bbq roasted half chicken":"chicken","bourbon roast pork loin":"pork loin","honey bbq pork ribs":"pork ribs","sesame beef":"beef","chile mushrooms":"mushroom","veggie fried rice":"rice",roll:"rolls","bread roll":"rolls","brioche roll":"brioche buns","hoagie roll":"hoagie rolls",
+  sub:"sub rolls",wrap:"flour wraps","flour wrap":"flour wraps",potato:"potatoes","grated cheese":"parmesan",
+  "grated parmesan":"parmesan","cavatelli pasta":"cavatelli","rigatoni pasta":"rigatoni","pasta tubes":"pasta",
+  "ricotta ravioli":"ravioli","pork sausage":"italian sausage","beef frankfurter":"hot dogs","beef burger":"ground beef",
+  "beef tacos":"ground beef","chicken tenders":"chicken tenders",tenders:"chicken tenders","chicken wings":"chicken wings",
+  "bbq jackfruit":"jackfruit","seitan strips":"seitan","teriyaki tofu":"tofu","sesame tofu":"tofu",
+  "vegetable loaf":"vegetable loaf","vegetable meatloaf":"vegetable loaf","gyro meat":"gyro meat",
+  "vegan tzatziki":"vegan tzatziki","vegan cheese sauce":"vegan cheese","cherry tomato":"cherry tomato",
+  "corn side":"corn","mac salad side":"macaroni","simple marinara sauce":"marinara","simple tomato marinara sauce":"marinara",
+  "pink cream meat sauce":"meat sauce","red sauce":"marinara","apple pressed":"apple","fries":"fries"};
+const DROP2=new Set(["cob","mac","sweet","sour","salad","dressing","sauce","filling","flaky crust","pastry turnover","pastry turnovers",
+  "folded pastry turnover","crisped cheese","pan sauce","cream","american or provolone","buffalo or garlic parm",
+  "buffalo or bbq sauce","eggplant rolled","chilled chicken gyro","chilled steak gyro","dipping consomme"]);
+function normIngredient(raw){
+  let s = raw.toLowerCase().trim().replace(/[().]/g,"").replace(/\s+/g," ");
+  s = s.replace(/^(a|an|the) /,"");
+  if(!s || DROP.has(s)) return null;
+  let t;
+  if(SYN[s]) t = SYN[s];
+  else {
+    const stripped = s.replace(PREP,"").trim();
+    t = SYN[stripped] || stripped || s;
+  }
+  t = PLURAL[t] || t;
+  t = MERGE[t] || t;
+  if(DROP2.has(t)) return null;
+  return t;
+}
+function splitDescription(d){
+  let t = " "+d.toLowerCase()+" ";
+  PRECLEAN.forEach(([re,to])=>{ t = t.replace(re,to); });
+  return t.split(/,| and | with | over | plus | in | on | under | into /)
+          .map(x=>x.trim()).filter(Boolean);
+}
+
+/* ---- what aisle each thing belongs in ---- */
+const CATS = [
+  ["PROTEIN", ["chicken","steak","ground beef","beef","pork","turkey","ground turkey","bacon","ham","italian sausage",
+    "chorizo","pepperoni","salami","capicola","prosciutto","meatballs","brisket","corned beef","roast beef","roast pork",
+    "pork loin","short rib","lamb","hot dogs","tuna","white fish","shrimp","chicken cutlets","chicken thighs",
+    "chicken tenders","chicken wings","gyro meat","cured meats","pork sliders","ribs","pork ribs","meatloaf","eggs","egg"]],
+  ["PLANT-BASED", ["tofu","seitan","jackfruit","falafel","impossible patties","beyond patties","veggie patties",
+    "vegan chorizo","lentils","chickpeas","vegan ricotta","vegan cheese","vegan tzatziki","vegetable loaf","cauliflower"]],
+  ["PRODUCE", ["tomato","cherry tomato","sun dried tomato","lettuce","romaine","iceberg","mixed greens","kale","spinach",
+    "cabbage","slaw","onion","red onion","pepper","roasted peppers","cherry peppers","jalapeno","fajita peppers",
+    "cucumber","corn","mushroom","portobello","broccoli","broccoli rabe","zucchini","celery","carrot","avocado",
+    "potatoes","sweet potato","eggplant","garlic","basil","cilantro","lime","apple","pineapple","olive","pickle",
+    "mandarin","vegetables","ginger"]],
+  ["DAIRY", ["mozzarella","cheddar","white cheddar","provolone","swiss cheese","american cheese","pepper jack",
+    "blue cheese","feta","cotija","brie","ricotta","parmesan","cream cheese","queso","cheese","sour cream","crema",
+    "butter","tzatziki"]],
+  ["BREAD", ["rolls","sub rolls","hoagie rolls","brioche buns","portuguese rolls","kaiser rolls","dinner rolls",
+    "pita bread","flour tortillas","corn tortillas","flour wraps","sourdough","rye bread","ciabatta","biscuits",
+    "corn muffins","cornbread","bread","waffles","croutons","tortilla strips","tortilla chips"]],
+  ["PANTRY", ["rice","beans","black beans","refried beans","baked beans","white beans","pasta","penne","rigatoni",
+    "linguine","egg noodles","noodles","macaroni","cavatelli","ravioli","shells","polenta","stuffing","rice balls",
+    "chips","marinara","meat sauce","bbq sauce","buffalo sauce","ranch","ranch dressing","mayo","chipotle mayo",
+    "garlic aioli","pesto","basil pesto","basil pesto mayo","balsamic","balsamic glaze","vinaigrette","oregano vinaigrette",
+    "caesar dressing","sesame dressing","sesame ginger dressing","chipotle ranch","honey mustard","mustard",
+    "dijon mustard","hummus","tahini","gravy","brown gravy","au jus","soy sauce","teriyaki sauce","olive oil","vinegar",
+    "honey","molasses","sesame seeds","curry paste","mild curry","chipotle","chili powder","white wine","marsala wine",
+    "bourbon","vodka sauce","horseradish sauce","tartar sauce","garlic sauce","consomme","sauerkraut","pico de gallo",
+    "dried cranberry","walnut","chipotle sauce","cajun sauce"]],
+  ["FROZEN & PREP", ["waffle fries","fries","potato wedges","onion rings","spring rolls"]]
+];
+const CAT_OF = (()=>{ const m={}; CATS.forEach(([c,list])=>list.forEach(i=>m[i]=c)); return m; })();
+/* Anything not named explicitly gets sorted by keyword, so dishes you add
+   later still land in the right aisle instead of piling up under OTHER.
+   Order matters: plant-based is tested before dairy and protein. */
+const CAT_RULES = [
+  ["PLANT-BASED", /\b(vegan|plant based|tofu|seitan|jackfruit|falafel|impossible|beyond|veggie patt|lentil|chickpea|meatless)\b/],
+  ["PANTRY",      /\b(dressing|sauce|glaze|vinaigrette|mayo|aioli|marinade|syrup|oil|vinegar|honey|molasses|powder|seasoning|salsa|relish|jus|gravy|stock|broth|paste|pesto|hummus|tahini|jam)\b/],
+  ["PROTEIN",     /\b(chicken|beef|steak|pork|turkey|bacon|ham|sausage|salami|lamb|shrimp|fish|tuna|meat|meatball|meatloaf|rib|ribs|patty|patties|cutlet|thigh|thighs|wing|wings|gyro|brisket|chorizo|pepperoni|prosciutto|capicola|frank|hot dog|egg|eggs)\b/],
+  ["DAIRY",       /\b(cheese|cheddar|mozzarella|provolone|swiss|feta|cotija|ricotta|parmesan|brie|queso|cream|butter|yogurt|milk|tzatziki|gouda|havarti|gruyere|asiago|romano|pecorino|burrata|mascarpone|halloumi|american)\b/],
+  ["BREAD",       /\b(roll|rolls|bun|buns|bread|tortilla|tortillas|wrap|wraps|pita|bagel|biscuit|muffin|crouton|croutons|waffle|waffles|ciabatta|sourdough|rye|sub|hoagie|crust|pastry)\b/],
+  ["FROZEN & PREP", /\b(fries|wedges|rings|spring roll|spring rolls|nuggets)\b/],
+  ["PANTRY",      /\b(rice|bean|beans|pasta|penne|rigatoni|linguine|noodle|noodles|macaroni|cavatelli|shells|ravioli|polenta|stuffing|chip|chips|corn meal|flour|sugar|salt)\b/],
+  ["PRODUCE",     /\b(lettuce|tomato|onion|pepper|peppers|cucumber|spinach|greens|kale|cabbage|slaw|mushroom|broccoli|zucchini|celery|carrot|avocado|potato|potatoes|eggplant|garlic|basil|cilantro|lime|lemon|apple|pineapple|olive|pickle|corn|cauliflower|romaine|iceberg|herb|herbs|vegetable|vegetables|salad)\b/]
+];
+function catFor(name){
+  if(CAT_OF[name]) return CAT_OF[name];
+  for(const [cat,re] of CAT_RULES) if(re.test(name)) return cat;
+  return "OTHER";
+}
+const CAT_ORDER = CATS.map(c=>c[0]).concat("OTHER");
+
+/* Collect every ingredient in the current week, with which days need it. */
+const DAYLTR = {mon:"M",tue:"T",wed:"W",thu:"T",fri:"F",sat:"S"};
+function weekIngredients(){
+  const bag = new Map();
+  const add=(dayKey, desc)=>{
+    if(!desc) return;
+    splitDescription(desc).forEach(p=>{
+      const n = normIngredient(p); if(!n) return;
+      if(!bag.has(n)) bag.set(n,{name:n, days:new Set(), uses:0});
+      const e=bag.get(n); e.days.add(dayKey); e.uses++;
+    });
+  };
+  DAYS.forEach(d=>{
+    const day=state.days[d];
+    if(day.closed||day.special) return;
+    day.slots.forEach(s=>add(d, s.d));
+  });
+  if(!state.sat.closed) [1,2,3].forEach(i=>add("sat", state.sat["d"+i]));
+
+  const groups={}; CAT_ORDER.forEach(c=>groups[c]=[]);
+  [...bag.values()].forEach(e=>{ groups[catFor(e.name)].push(e); });
+  CAT_ORDER.forEach(c=>groups[c].sort((a,b)=>b.uses-a.uses || a.name.localeCompare(b.name)));
+  return {groups, total:bag.size};
+}
+
+/* ================= order sheet renderer ================= */
+const OS_COLX = [120, 817, 1514], OS_COLW = 667;
+const OS_TOP = 400, OS_BOTTOM = 1600;
+const DAY_KEYS = ["mon","tue","wed","thu","fri","sat"];
+
+function renderSheet(){
+  const cv=document.getElementById("cv2"), c=cv.getContext("2d");
+  c.fillStyle="#fff"; c.fillRect(0,0,W,H); c.lineJoin="round";
+  c.textBaseline="alphabetic";
+
+  /* header, same frame language as the menu */
+  c.strokeStyle=BLK; c.lineWidth=5; rr(c,120,165,2063,154,42); c.stroke();
+  c.font="700 62px "+FONT; c.textAlign="center"; c.fillStyle=RED;
+  c.fillText("ORDER SHEET", 856, 268);
+  c.strokeStyle=BLK; c.lineWidth=6; c.setLineDash([7,15]);
+  c.beginPath(); c.moveTo(1565,172); c.lineTo(1565,312); c.stroke(); c.setLineDash([]);
+  c.font="700 45px "+FONT; c.fillStyle=RED; c.fillText(state.dateLabel||"", 1874, 258);
+
+  const {groups, total} = weekIngredients();
+
+  /* flow the category blocks into three balanced columns */
+  const ROW=30, HEAD=42, GAP=16;
+  const blocks=[];
+  CAT_ORDER.forEach(cat=>{ const items=groups[cat];
+    if(items.length) blocks.push({cat, items, h: HEAD + items.length*ROW + GAP}); });
+  const totalH = blocks.reduce((a,b)=>a+b.h,0), target = totalH/3;
+  const cols=[[],[],[]]; let ci=0, acc=0;
+  blocks.forEach(b=>{
+    if(ci<2 && acc>0 && acc + b.h/2 > target){ ci++; acc=0; }
+    cols[ci].push(b); acc+=b.h;
+  });
+
+  cols.forEach((col,i)=>{
+    const x=OS_COLX[i]; let y=OS_TOP;
+    col.forEach(b=>{
+      /* category pill */
+      c.fillStyle=BLK; rr(c,x,y-24,OS_COLW,34,17); c.fill();
+      c.fillStyle="#fff"; c.font="700 16px "+FONT; c.textAlign="left";
+      spaced(c, b.cat, x+OS_COLW/2, y, 3);
+      /* column captions */
+      c.fillStyle="#8A8A93"; c.font="700 10px "+FONT; c.textAlign="left";
+      c.fillText("M  T  W  T  F  S", x+OS_COLW-238, y+26);
+      c.fillText("AMOUNT", x+OS_COLW-104, y+26);
+      y += HEAD;
+
+      b.items.forEach((it,k)=>{
+        if(k%2===0){ c.fillStyle="#F4F4F6"; c.fillRect(x, y-19, OS_COLW, ROW-4); }
+        /* name */
+        c.fillStyle=BLK; c.font="700 15px "+FONT; c.textAlign="left";
+        let nm=it.name.replace(/\b\w/g,ch=>ch.toUpperCase());
+        while(c.measureText(nm).width > OS_COLW-252) nm=nm.slice(0,-2);
+        c.fillText(nm, x+10, y);
+        /* day dots */
+        let dx = x+OS_COLW-236;
+        DAY_KEYS.forEach(dk=>{
+          const on = it.days.has(dk);
+          c.font="700 12px "+FONT; c.textAlign="center";
+          if(on){ c.fillStyle=RED; c.beginPath(); c.arc(dx+6, y-4.5, 9, 0, 7); c.fill(); c.fillStyle="#fff"; }
+          else c.fillStyle="#C8C8CE";
+          c.fillText(DAYLTR[dk], dx+6, y);
+          dx += 20;
+        });
+        /* blank amount box */
+        c.strokeStyle="#B8B8C0"; c.lineWidth=1.3;
+        rr(c, x+OS_COLW-108, y-18, 98, 22, 5); c.stroke();
+        y += ROW;
+      });
+      y += GAP;
+    });
+  });
+
+  /* footer note */
+  c.textAlign="left"; c.font="italic 400 17px "+FONT; c.fillStyle="#5A5A63";
+  c.fillText(total+" items for the week. Pulled from the menu descriptions — staples like oil, salt, flour and seasoning are not listed.",
+             120, 1660);
+  buildSheetText(groups);
+}
+
+function buildSheetText(groups){
+  let s = "ORDER SHEET  "+state.dateLabel+"\n\n";
+  CAT_ORDER.forEach(cat=>{
+    const items=groups[cat]; if(!items.length) return;
+    s += cat+"\n";
+    items.forEach(it=>{
+      const d = DAY_KEYS.filter(k=>it.days.has(k)).map(k=>DAYLTR[k]).join(" ");
+      s += "  [ ____ ]  "+it.name.replace(/\b\w/g,ch=>ch.toUpperCase())+"   ("+d+")\n";
+    });
+    s += "\n";
+  });
+  s += "Staples (oil, salt, flour, seasoning) are not listed.\n";
+  window.__sheetText = s;
+}
+
+/* ================= daily prep list =================
+   Same ingredients, sliced by day instead of by aisle. */
+const DP_COLW = 323, DP_GAP = 25;
+const DP_COLX = [0,1,2,3,4,5].map(i=>120 + i*(DP_COLW+DP_GAP));
+const DP_DAYS = [["mon","MON"],["tue","TUE"],["wed","WED"],["thu","THU"],["fri","FRI"],["sat","SAT"]];
+
+/* ingredients for one day, grouped into the same aisles */
+function dayIngredients(dayKey){
+  const bag = new Map();
+  const add=(desc)=>{ if(!desc) return;
+    splitDescription(desc).forEach(p=>{ const n=normIngredient(p); if(!n) return;
+      bag.set(n,(bag.get(n)||0)+1); }); };
+  const dishes=[];
+  if(dayKey==="sat"){
+    if(state.sat.closed) return {closed:true};
+    [1,2,3].forEach(i=>{ add(state.sat["d"+i]);
+      dishes.push({n:i, t:state.sat["m"+i]||"", tag:i===2?"VEGAN":(i===3?"SALAD":"")}); });
+  } else {
+    const day=state.days[dayKey];
+    if(day.closed) return {closed:true};
+    if(day.special) return {special:day.special};
+    day.slots.forEach((s,i)=>{ add(s.d);
+      dishes.push({n:i+1, t:s.t||"", tag:i===2?"VEGAN":(i===3?"SALAD":"")}); });
+  }
+  const groups={}; CAT_ORDER.forEach(c=>groups[c]=[]);
+  [...bag.keys()].forEach(n=>groups[catFor(n)].push(n));
+  CAT_ORDER.forEach(c=>groups[c].sort());
+  return {groups, dishes, count:bag.size};
+}
+
+function renderDaily(){
+  const cv=document.getElementById("cv3"), c=cv.getContext("2d");
+  c.fillStyle="#fff"; c.fillRect(0,0,W,H); c.lineJoin="round"; c.textBaseline="alphabetic";
+
+  c.strokeStyle=BLK; c.lineWidth=5; rr(c,120,165,2063,154,42); c.stroke();
+  c.font="700 58px "+FONT; c.textAlign="center"; c.fillStyle=RED;
+  c.fillText("DAILY PREP LIST", 856, 266);
+  c.strokeStyle=BLK; c.lineWidth=6; c.setLineDash([7,15]);
+  c.beginPath(); c.moveTo(1565,172); c.lineTo(1565,312); c.stroke(); c.setLineDash([]);
+  c.font="700 45px "+FONT; c.fillStyle=RED; c.fillText(state.dateLabel||"", 1874, 258);
+
+  let text = "DAILY PREP LIST  "+state.dateLabel+"\n\n";
+
+  DP_DAYS.forEach(([key,label],i)=>{
+    const x=DP_COLX[i];
+    c.strokeStyle=BLK; c.lineWidth=4; rr(c,x,343,DP_COLW,1245,26); c.stroke();
+    c.fillStyle=BLK; rr(c,x+9,357,DP_COLW-18,62,19); c.fill();
+    c.fillStyle="#fff"; c.font="400 32px "+FONT; c.textAlign="left";
+    spaced(c,label,x+DP_COLW/2,400,9);
+
+    const data = dayIngredients(key);
+    let y=468;
+    text += label+"\n";
+    if(!data || data.closed){
+      c.font="700 17px "+FONT; c.textAlign="center"; c.fillStyle=BLK;
+      c.fillText("CLOSED", x+DP_COLW/2, y);
+      text += "  CLOSED\n\n"; return;
+    }
+    if(data.special){
+      c.font="700 15px "+FONT; c.textAlign="center"; c.fillStyle=RED;
+      wrap(c,data.special,DP_COLW-40).forEach(l=>{ c.fillText(l,x+DP_COLW/2,y); y+=20; });
+      text += "  "+data.special+"\n\n"; return;
+    }
+    /* what they are making */
+    const sectionLabel=(txt)=>{
+      c.textAlign="left"; c.font="700 10.5px "+FONT; c.fillStyle="#8A8A93";
+      spaced(c, txt, x+14+c.measureText(txt).width/2, y, 1.2);
+      c.strokeStyle="#E2E2E7"; c.lineWidth=1;
+      c.beginPath(); c.moveTo(x+14, y+5); c.lineTo(x+DP_COLW-14, y+5); c.stroke();
+      y += 20;
+    };
+    sectionLabel("MAKING TODAY");
+    text += "  MAKING TODAY\n";
+    data.dishes.forEach(d=>{
+      if(!d.t) return;
+      c.fillStyle=RED; rr(c, x+14, y-10, 17, 13, 3.5); c.fill();
+      c.fillStyle="#fff"; c.font="700 10px "+FONT; c.textAlign="center";
+      c.fillText(String(d.n), x+22.5, y);
+      c.textAlign="left"; c.font="700 12.5px "+FONT; c.fillStyle=RED;
+      const lines=wrap(c, d.t, DP_COLW-52);
+      lines.forEach((l,li)=>{ c.fillText(l, x+37, y + li*15); });
+      y += lines.length*15;
+      if(d.tag){ c.font="700 8.5px "+FONT; c.fillStyle="#8A8A93";
+        c.fillText(d.tag, x+37, y+1); y += 11; }
+
+      /* rating + difficulty, only once they have been set */
+      const m = metaFor(d.t);
+      if(m.r || m.f){
+        let mx = x+37;
+        if(m.r){
+          c.font="700 12px "+FONT; c.textAlign="left";
+          for(let n=1;n<=5;n++){ c.fillStyle = n<=m.r ? "#E8A317" : "#DCDCE2";
+            c.fillText("\u2605", mx, y+3); mx += 11; }
+          mx += 7;
+        }
+        if(m.f){
+          const d2=DIFFS[m.f];
+          c.font="700 8.5px "+FONT;
+          const wpill = c.measureText(d2.label).width + 12;
+          c.fillStyle=d2.col; rr(c, mx, y-6, wpill, 12, 6); c.fill();
+          c.fillStyle="#fff"; c.textAlign="center";
+          c.fillText(d2.label, mx+wpill/2, y+2.5);
+        }
+        y += 14;
+      }
+      y += 6;
+      text += "    "+d.n+". "+d.t+(d.tag?"  ("+d.tag+")":"")
+            + (m.r?"  "+"\u2605".repeat(m.r)+"\u2606".repeat(5-m.r):"")
+            + (m.f?"  ["+DIFFS[m.f].label+"]":"") + "\n";
+    });
+    y += 10;
+    sectionLabel("TO PULL");
+    text += "  TO PULL\n";
+
+    CAT_ORDER.forEach(cat=>{
+      const items=data.groups[cat]; if(!items.length) return;
+      c.textAlign="left"; c.font="700 9.5px "+FONT; c.fillStyle="#A0A0A9";
+      c.fillText(cat, x+14, y);
+      y += 15;
+      text += "    "+cat+"\n";
+      items.forEach(n=>{
+        c.strokeStyle="#A9A9B2"; c.lineWidth=1.3;
+        rr(c, x+14, y-10, 11, 11, 2.5); c.stroke();
+        c.fillStyle=BLK; c.font="700 13.5px "+FONT; c.textAlign="left";
+        let nm=n.replace(/\b\w/g,ch=>ch.toUpperCase());
+        while(c.measureText(nm).width > DP_COLW-46) nm=nm.slice(0,-2);
+        c.fillText(nm, x+33, y);
+        text += "      [ ] "+nm+"\n";
+        y += 23;
+      });
+      y += 8;
+    });
+    text += "\n";
+  });
+
+  c.textAlign="left"; c.font="italic 400 16px "+FONT; c.fillStyle="#5A5A63";
+  c.fillText("Pulled from the menu descriptions — staples like oil, salt, flour and seasoning are not listed.", 120, 1640);
+  window.__dailyText = text + "Staples (oil, salt, flour, seasoning) are not listed.\n";
 }
 
 /* ================= library panel ================= */
@@ -1312,10 +1782,21 @@ function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800); }
 function persist(){ save(K.state,state); }
 
+let VIEW="menu";
+const VIEW_CANVAS = {menu:"cv", sheet:"cv2", daily:"cv3"};
+const VIEW_TEXT   = {menu:"__menuText", sheet:"__sheetText", daily:"__dailyText"};
+const VIEW_FILE   = {menu:"Menu ", sheet:"Order Sheet ", daily:"Prep List "};
+function setView(v){
+  VIEW=v;
+  Object.entries(VIEW_CANVAS).forEach(([k,id])=>{
+    document.getElementById(id).style.display = k===v ? "block":"none"; });
+  document.querySelectorAll("#viewSeg button").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
+  document.getElementById("txtOut").value = window[VIEW_TEXT[v]] || "";
+}
 function downloadPNG(){
-  const cv=document.getElementById("cv");
+  const cv=document.getElementById(VIEW_CANVAS[VIEW]||"cv");
   const a=parseISO(state.weekStart);
-  const name="Menu "+(a.getMonth()+1)+"."+a.getDate()+"."+String(a.getFullYear()).slice(2)+".png";
+  const name=(VIEW_FILE[VIEW]||"Menu ")+(a.getMonth()+1)+"."+a.getDate()+"."+String(a.getFullYear()).slice(2)+".png";
   cv.toBlob(bl=>{
     const u=URL.createObjectURL(bl), l=document.createElement("a");
     l.href=u; l.download=name; document.body.appendChild(l); l.click(); l.remove();
@@ -1351,6 +1832,7 @@ function wire(){
     DAYS.forEach(d=>state.days[d].slots.forEach(s=>{ if(!s.lock) s.t=""; }));
     generate(); toast("Week generated");
   };
+  document.querySelectorAll("#viewSeg button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
   document.getElementById("dl").onclick=downloadPNG;
   document.getElementById("dl2").onclick=downloadPNG;
   document.getElementById("saveHist").onclick=saveToHistory;
