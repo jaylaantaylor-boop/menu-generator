@@ -1049,16 +1049,36 @@ function buildGrid(){
     card.appendChild(slots);
     const foot=el("div","dayfoot");
     const cb=el("label"); const c=el("input"); c.type="checkbox"; c.checked=day.closed;
-    c.onchange=()=>{ day.closed=c.checked; if(c.checked) day.special=""; buildGrid(); render(); persist(); };
+    c.onchange=()=>{ day.closed=c.checked; if(c.checked) day.special="";
+      if(!day.closed && !day.special) refillIfBlank(d);
+      buildGrid(); render(); persist(); };
     cb.appendChild(c); cb.appendChild(document.createTextNode("Closed"));
     const sp=el("input"); sp.type="text"; sp.placeholder="Special (e.g. 4TH OF JULY BUFFET)"; sp.value=day.special;
-    sp.oninput=()=>{ day.special=sp.value.toUpperCase(); render(); persist(); };
+    sp.oninput=()=>{ const was=day.special; day.special=sp.value.toUpperCase();
+      if(was && !day.special && !day.closed){ refillIfBlank(d); buildGrid(); }
+      render(); persist(); };
     foot.appendChild(cb); foot.appendChild(sp);
     card.appendChild(foot);
     g.appendChild(card);
   });
 }
 function syncUI(){ buildGrid(); }
+/* A day that was closed or on a special can end up with no dish names.
+   Fill it back in rather than leaving the column empty. */
+function refillIfBlank(d){
+  const day=state.days[d];
+  if(day.closed || day.special) return;
+  if(day.slots.every(s=>!s.t)) generate(d);
+}
+/* Repair state saved before the fix above: a slot with a description but
+   no name is an orphan, so clear the leftovers. */
+(function repairOrphans(){
+  let fixed=0;
+  DAYS.forEach(d=>state.days[d].slots.forEach(s=>{
+    if(!s.t && (s.d || s.a)){ s.d=""; s.a=""; s.isNew=false; fixed++; }
+  }));
+  if(fixed) save(K.state, state);
+})();
 
 /* ================= canvas renderer ================= */
 const W=2304, H=1728, RED="#B5191C", BLK="#000";
@@ -1829,7 +1849,14 @@ function wire(){
   np.oninput=()=>npo.textContent=np.value+"%"; npo.textContent=np.value+"%";
 
   document.getElementById("genAll").onclick=()=>{
-    DAYS.forEach(d=>state.days[d].slots.forEach(s=>{ if(!s.lock) s.t=""; }));
+    /* Only wipe the days generate() will actually refill.  Closed and
+       special days are skipped down there, so clearing them here would
+       leave them permanently blank. */
+    DAYS.forEach(d=>{
+      const day=state.days[d];
+      if(day.closed || day.special) return;
+      day.slots.forEach(s=>{ if(!s.lock) s.t=""; });
+    });
     generate(); toast("Week generated");
   };
   document.querySelectorAll("#viewSeg button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
