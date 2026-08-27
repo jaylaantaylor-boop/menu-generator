@@ -203,6 +203,9 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .trendtable{min-width:480px}
 .hist table{min-width:640px}
 .ttable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.hist .reuse{border:1px solid #d3d3d9;background:#fff;color:#111;border-radius:6px;
+  padding:2px 9px;font-size:10.5px;font-weight:800;letter-spacing:.3px;margin-right:4px}
+.hist .reuse:hover{background:#f0f0f3;border-color:#b9b9c2}
 .ttable .del{border:0;background:none;color:#c33;font-size:15px;line-height:1;padding:0 4px;cursor:pointer}
 .ttable .del:hover{color:#8d1f1f}
 .undobar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
@@ -2400,12 +2403,18 @@ function buildHist(){
   const b=document.getElementById("histBody");
   if(!HIST.length){ b.innerHTML='<p class="note" style="padding:14px 0">No saved weeks yet.</p>'; return; }
   const withRun = HIST.filter(w=>w.run && w.run.result).length;
-  let h='<table><tr><th>Week</th><th>Served</th><th>Revenue</th><th>Profit</th>'
-      + '<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th></th></tr>';
+  /* Actions sit second, not last: this table scrolls sideways on a phone and a
+     trailing column would be five day-columns out of reach. */
+  let h='<table><tr><th>Week</th><th></th><th>Served</th><th>Revenue</th><th>Profit</th>'
+      + '<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th></tr>';
   HIST.slice().reverse().forEach((w,ri)=>{
     const i=HIST.length-1-ri;
     const r = w.run && w.run.result;
-    h+='<tr><td class="wk">'+(w.label||w.week)+"</td>";
+    h+='<tr><td class="wk">'+(w.label||w.week)+"</td>"
+     + '<td style="white-space:nowrap">'
+     + '<button data-w="'+esc(w.week)+'" class="reuse" title="Put these dishes back into the builder">Reuse</button>'
+     + '<button data-i="'+i+'" class="delhist" style="border:0;background:none;color:#c33" title="Delete this week">×</button>'
+     + '</td>';
     if(r){
       h+='<td class="wk">'+(r.people||0)+"</td>"
        + '<td class="wk">'+fmtMoney(r.revenue||0)+"</td>"
@@ -2414,10 +2423,11 @@ function buildHist(){
       h+='<td colspan="3" style="color:#a0a0a9;font-size:11px">saved before the app kept numbers</td>';
     }
     DAYS.forEach(d=>{ const a=w.days[d]||[]; h+="<td>"+a.filter(Boolean).join("<br>")+"</td>"; });
-    h+='<td><button data-i="'+i+'" class="delhist" style="border:0;background:none;color:#c33">×</button></td></tr>';
+    h+='</tr>';
   });
   b.innerHTML='<div class="plot">'+h+"</table></div>";
   b.querySelectorAll(".delhist").forEach(x=>x.onclick=()=>{ const gone=HIST[+x.dataset.i]; if(gone) deleteWeek(gone.week); });
+  b.querySelectorAll(".reuse").forEach(x=>x.onclick=()=>reuseWeek(x.dataset.w));
 }
 
 /* ================= what actually got served =================
@@ -2850,6 +2860,74 @@ function rateWarning(){
     w.innerHTML='<div class="warn">#1 to #4 add up to <b>'+cov+'%</b>, so '+(100-cov)+'% of people '
       +'get no entr&eacute;e at all. If everybody takes one, these four should come to 100.</div>';
   } else w.innerHTML="";
+}
+
+/* ================= reuse a past week =================
+   History could only be read or deleted.  A week that went well — good ratings,
+   nothing left over — was retyped by hand or not run again. */
+
+/* A dish's description and allergens live in DESC for the mined set and on the
+   library entry for anything added since, so try both. */
+function lookupDish(name){
+  const n=(name||"").trim().toUpperCase();
+  if(!n) return null;
+  const e=DESC[n];
+  if(e) return {d:e[0], a:e[1]};
+  for(const day of DAYS)
+    for(const kind of ["mains","vegan","salads"]){
+      const hit=(LIB[day][kind]||[]).find(o=>(o.n||"").trim().toUpperCase()===n);
+      if(hit) return {d:hit.d||"", a:hit.a||""};
+    }
+  return {d:"", a:""};
+}
+
+function reuseWeek(weekKey){
+  const rec=HIST.find(h=>h.week===weekKey);
+  if(!rec){ toast("Could not find that week"); return; }
+
+  const blocked=DAYS.filter(d=>state.days[d].closed || state.days[d].special);
+  const names=DAYS.filter(d=>!blocked.includes(d))
+                  .flatMap(d=>(rec.days[d]||[]).filter(Boolean));
+  if(!names.length && !(rec.sat||[]).filter(Boolean).length){
+    toast("That week has no dishes stored"); return;
+  }
+
+  if(!confirm(
+    "Put the dishes from " + (rec.label||rec.week) + " back into this week?\n\n"
+    + "This REPLACES the dish names, descriptions and allergens now in the builder.\n"
+    + "Your headcounts, prices, costs and recorded days are left alone.\n"
+    + (blocked.length ? "\n" + blocked.map(d=>DAYNAME[d]).join(", ")
+        + (blocked.length===1?" is":" are") + " closed or on a special, so "
+        + (blocked.length===1?"it is":"they are") + " skipped.\n" : "")
+    + "\nCarry on?")) return;
+
+  let filled=0;
+  DAYS.forEach(d=>{
+    if(blocked.includes(d)) return;
+    const src=rec.days[d]||[];
+    state.days[d].slots.forEach((sl,i)=>{
+      const nm=(src[i]||"").trim().toUpperCase();
+      sl.t=nm; sl.isNew=false; sl.lock=false;
+      const look=lookupDish(nm);
+      sl.d = look? look.d : ""; sl.a = look? look.a : "";
+      if(nm) filled++;
+    });
+  });
+
+  const sat=rec.sat||[];
+  if(sat.filter(Boolean).length && !state.sat.closed){
+    [1,2,3].forEach(i=>{
+      const nm=(sat[i-1]||"").trim().toUpperCase();
+      if(!nm) return;
+      state.sat["m"+i]=nm;
+      const look=lookupDish(nm);
+      state.sat["d"+i]=look?look.d:""; state.sat["a"+i]=look?look.a:"";
+      filled++;
+    });
+  }
+
+  buildGrid(); wire(); render(); persist();
+  toast("Loaded "+filled+" dishes from "+(rec.label||rec.week));
 }
 
 /* ================= pre-flight =================
