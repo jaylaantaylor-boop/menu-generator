@@ -24,6 +24,15 @@ header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;t
 .tbar{display:flex;align-items:center;gap:8px;padding:9px 12px}
 .tbar h1{font-size:14px;margin:0;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
 .tbar h1 span{color:var(--red)}
+.savealert{position:fixed;left:0;right:0;top:0;z-index:120;background:#a12a22;color:#fff;
+  padding:11px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  font-size:13px;font-weight:700;box-shadow:0 2px 12px rgba(0,0,0,.28)}
+.savealert b{font-weight:800}
+.savealert .msg{flex:1;min-width:220px;font-weight:600;line-height:1.4}
+.savealert button{background:#fff;color:#a12a22;border:0;font-weight:800;padding:7px 13px;border-radius:7px}
+.savealert button.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.55)}
+.offchip{font-size:9.5px;font-weight:800;letter-spacing:.5px;background:#fff6e5;color:#7a5a12;
+  border:1px solid #ecd9a8;border-radius:6px;padding:2px 6px;white-space:nowrap}
 .wkchip{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.4px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
 .tbar button{padding:7px 11px;font-size:13px;white-space:nowrap}
@@ -284,10 +293,17 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
 </style>
 </head>
 <body>
+<div class="savealert" id="storageAlert" hidden>
+  <b>NOT SAVED</b>
+  <span class="msg">This browser refused to store your last change &mdash; it may be full, or in private mode. Anything you have typed since is only in this page. Back it up now, before you reload or close the tab.</span>
+  <button id="alertBackup">Back up now</button>
+  <button class="ghost" id="alertHide">Hide</button>
+</div>
 <header class="top">
   <div class="tbar">
     <h1>Menu <span>Generator</span></h1>
     <div class="wkchip" id="wkChip"></div>
+    <span class="offchip" id="offChip" hidden>OFFLINE</span>
     <button id="gear" title="Settings" aria-expanded="false" aria-controls="hdrSheet">⚙︎</button>
     <button class="go" id="genAll"><span class="ic">⚡</span><span class="tx">Generate week</span></button>
     <button class="primary" id="dl"><span class="ic">⬇</span><span class="tx">Download PNG</span></button>
@@ -1212,7 +1228,25 @@ function applyDesc(lib){
 const K = {lib:"mmt_menugen_v1_lib", hist:"mmt_menugen_v1_history", state:"mmt_menugen_v1_state",
            meta:"mmt_menugen_v1_meta"};
 const load = (k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } };
-const save = (k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
+/* A silent write failure is the worst outcome here: you would keep typing dish
+   costs, see no error, and lose the lot on reload.  So say so, loudly, and keep
+   saying it until a write succeeds again. */
+let SAVE_OK = true;
+function saveAlarm(failed){
+  SAVE_OK = !failed;
+  const el = document.getElementById("storageAlert");
+  if(el && !window.__alertDismissed) el.hidden = !failed;
+}
+const save = (k,v)=>{
+  try{
+    localStorage.setItem(k, JSON.stringify(v));
+    if(!SAVE_OK){ window.__alertDismissed=false; saveAlarm(false); }
+    return true;
+  }catch(e){
+    saveAlarm(true);
+    return false;
+  }
+};
 
 let LIB  = applyDesc(applyOffTheme(load(K.lib, null) || JSON.parse(JSON.stringify(BASE_LIB))));
 let HIST = load(K.hist, null) || JSON.parse(JSON.stringify(SEED_HISTORY));
@@ -4317,12 +4351,38 @@ function wire(){
   };
 }
 
+/* ================= offline =================
+   Registered only over https (and localhost for testing) — a service worker
+   cannot install from a file:// copy, and trying would throw on every open.
+   Scope is "./" so this controls the menu-generator folder and nothing else on
+   the shared origin. */
+function registerOffline(){
+  if(!("serviceWorker" in navigator)) return;
+  const ok = location.protocol==="https:" ||
+             location.hostname==="localhost" || location.hostname==="127.0.0.1";
+  if(!ok) return;
+  navigator.serviceWorker.register("sw.js", {scope:"./"}).catch(()=>{});
+}
+function wireSaveAlert(){
+  const b=document.getElementById("alertBackup"), h=document.getElementById("alertHide");
+  if(b) b.onclick=()=>doBackup();
+  if(h) h.onclick=()=>{ window.__alertDismissed=true;
+    document.getElementById("storageAlert").hidden=true; };
+}
+function wireOfflineChip(){
+  const chip=document.getElementById("offChip"); if(!chip) return;
+  const sync=()=>{ chip.hidden = navigator.onLine !== false; };
+  sync();
+  window.addEventListener("online", sync);
+  window.addEventListener("offline", sync);
+}
+
 /* ================= init ================= */
 function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render();
+  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); wireSaveAlert(); wireOfflineChip(); registerOffline();
   wirePhotos();
   /* the photo count on each card needs the index, which only IndexedDB can
      answer — so the cards are drawn once now and refreshed when it lands */
