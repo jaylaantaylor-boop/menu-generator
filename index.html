@@ -276,6 +276,19 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
     </div>
   </details>
 
+  <details class="panel" id="backupPanel">
+    <summary>Backup — everything on this device, in one file</summary>
+    <div class="body">
+      <p class="note" style="margin:12px 0 0">Nothing here syncs or lives anywhere else. Your dish costs, ratings, prices, headcounts, history and library exist in <b>this browser only</b>. Clear it, lose the laptop, or have the browser tidy up after itself and it is all gone. This is the copy that gets it back.</p>
+      <div id="backupState"></div>
+      <div class="photobar">
+        <button class="primary" id="bkExport">⬇ Back up everything</button>
+        <button id="bkImport">⬆ Restore from a backup</button>
+      </div>
+      <p class="note" style="margin:10px 0 0">Photos are optional in the backup &mdash; you will be asked, with the size, because they are much bigger than everything else put together.</p>
+    </div>
+  </details>
+
   <details class="panel" id="photoPanel">
     <summary>Photo library — what each dish should look like</summary>
     <div class="body">
@@ -2625,6 +2638,10 @@ function pdbOpen(){
     };
     rq.onsuccess = ()=>{ PDB = rq.result; res(PDB); };
     rq.onerror   = ()=>rej(rq.error || new Error("could not open the photo store"));
+    /* Another tab holding an old connection blocks the open indefinitely.  Fail
+       loudly instead of leaving every photo call hanging on a promise forever. */
+    rq.onblocked = ()=>rej(new Error("The photo library is open in another tab — close it and reload."));
+    setTimeout(()=>rej(new Error("The photo library did not respond. Close any other tabs with this app open, then reload.")), 8000);
   });
 }
 function pdbTx(stores, mode, fn){
@@ -2692,16 +2709,33 @@ function processPhoto(file){
     }));
   });
 }
+function storePhoto(dish, blob, w, h, thumb, added){
+  return pdbTx(["photos","blobs"],"readwrite",([photos,blobs],set)=>{
+    const rq = photos.add({dish, thumb, w, h, bytes:blob.size, added: added || Date.now()});
+    rq.onsuccess = ()=>{ blobs.put({id:rq.result, blob}); set(rq.result); };
+  }).then(id=>{ PHOTO_INDEX[dish]=(PHOTO_INDEX[dish]||0)+1; return id; });
+}
 function addPhoto(dishName, file){
   const dish=(dishName||"").trim().toUpperCase();
   if(!dish) return Promise.reject(new Error("pick a dish first"));
   if(!/^image\//.test(file.type)) return Promise.reject(new Error("that file is not an image"));
-  return processPhoto(file).then(p=>
-    pdbTx(["photos","blobs"],"readwrite",([photos,blobs],set)=>{
-      const rq = photos.add({dish, thumb:p.thumb, w:p.w, h:p.h, bytes:p.blob.size, added:Date.now()});
-      rq.onsuccess = ()=>{ blobs.put({id:rq.result, blob:p.blob}); set(rq.result); };
+  return processPhoto(file).then(p=>storePhoto(dish, p.blob, p.w, p.h, p.thumb));
+}
+/* Restoring an already-shrunk photo must NOT run it through the encoder again —
+   that would compress a compressed JPEG every time a backup was restored. */
+function restorePhoto(p){
+  const dish=(p.dish||"").trim().toUpperCase();
+  if(!dish || !p.data) return Promise.resolve(null);
+  return dataURLToBlob(p.data).then(b=>
+    loadBitmap(b).then(src=>{
+      const t = drawTo(src, 300, "image/jpeg", 0.72).canvas.toDataURL("image/jpeg", 0.72);
+      return storePhoto(dish, b, p.w||src.width, p.h||src.height, t, p.added);
     })
-  ).then(id=>{ PHOTO_INDEX[dish]=(PHOTO_INDEX[dish]||0)+1; return id; });
+  );
+}
+function clearAllPhotos(){
+  return pdbTx(["photos","blobs"],"readwrite",([photos,blobs])=>{ photos.clear(); blobs.clear(); })
+    .then(()=>{ PHOTO_INDEX={}; });
 }
 function deletePhoto(id, dish){
   return pdbTx(["photos","blobs"],"readwrite",([photos,blobs])=>{
@@ -2872,12 +2906,8 @@ function importPhotos(){
       const list = doc && doc.photos;
       if(!Array.isArray(list) || !list.length){ toast("No photos in that file"); return; }
       toast("Importing "+list.length+" photos…");
-      list.reduce((chain,p)=>chain.then(()=>
-        dataURLToBlob(p.data).then(b=>{
-          const file2=new File([b], "photo.jpg", {type:b.type||"image/jpeg"});
-          return addPhoto(p.dish, file2);
-        }).catch(()=>{})
-      ), Promise.resolve()).then(()=>{
+      list.reduce((chain,p)=>chain.then(()=>restorePhoto(p).catch(()=>{})),
+        Promise.resolve()).then(()=>{
         rebuildPhotoIndex().then(()=>{ buildGrid(); buildPhotoPanel(); toast("Imported "+list.length+" photos"); });
       });
     };
@@ -2932,6 +2962,133 @@ function wirePhotos(){
   document.getElementById("pExport").onclick=exportPhotos;
   document.getElementById("pImport").onclick=importPhotos;
   requestPhotoPersistence();
+}
+
+/* ================= backup =================
+   One file holding every namespaced key this app owns, so a cleared browser is
+   an inconvenience rather than the loss of a season of typed-in dish costs. */
+const BACKUP_APP = "menu-generator", BACKUP_V = 1;
+
+function backupCore(){
+  return {app:BACKUP_APP, v:BACKUP_V, at:new Date().toISOString(),
+          lib:LIB, hist:HIST, meta:META, state:state};
+}
+function backupFilename(){
+  const d=new Date(), p=n=>String(n).padStart(2,"0");
+  return "menu-generator-backup-"+d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+".json";
+}
+function saveBackupFile(doc){
+  const bl=new Blob([JSON.stringify(doc)],{type:"application/json"});
+  const u=URL.createObjectURL(bl), a=document.createElement("a");
+  a.href=u; a.download=backupFilename(); document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),4000);
+  state.backupAt = new Date().toISOString(); persist(); buildBackupState();
+  return bl.size;
+}
+
+function doBackup(){
+  photoList().then(rows=>{
+    const bytes = rows.reduce((a,r)=>a+(r.bytes||0),0);
+    const doc = backupCore();
+    if(!rows.length){ const n=saveBackupFile(doc); toast("Backed up ("+fmtBytes(n)+")"); return; }
+    const packed = Math.round(bytes*1.37);
+    const withPhotos = confirm(
+      "Include the "+rows.length+" photo"+(rows.length===1?"":"s")+" as well?\n\n"
+      + "With photos:    about "+fmtBytes(packed)+"  (slower to write)\n"
+      + "Without photos: a few hundred KB\n\n"
+      + "OK = include them.  Cancel = everything except photos.");
+    if(!withPhotos){ const n=saveBackupFile(doc); toast("Backed up without photos ("+fmtBytes(n)+")"); return; }
+    toast("Packing "+rows.length+" photos…");
+    rows.reduce((chain,r)=>chain.then(acc=>
+      photoFull(r.id).then(b=> b ? blobToDataURL(b).then(d=>{
+        acc.push({dish:r.dish, w:r.w, h:r.h, added:r.added, data:d}); return acc;
+      }) : acc)
+    ), Promise.resolve([])).then(photos=>{
+      doc.photos = photos;
+      const n = saveBackupFile(doc);
+      toast("Backed up with "+photos.length+" photos ("+fmtBytes(n)+")");
+    });
+  }).catch(()=>{ const n=saveBackupFile(backupCore()); toast("Backed up ("+fmtBytes(n)+")"); });
+}
+
+function doRestore(){
+  const f=document.createElement("input"); f.type="file"; f.accept="application/json";
+  f.onchange=()=>{
+    const file=f.files[0]; if(!file) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      let doc;
+      try{ doc=JSON.parse(r.result); }catch(e){ toast("Could not read that file"); return; }
+      if(!doc || doc.app!==BACKUP_APP){ toast("That is not a Menu Generator backup"); return; }
+      if(doc.v>BACKUP_V){ toast("That backup came from a newer version of the app"); return; }
+
+      const when = doc.at ? new Date(doc.at).toLocaleString() : "an unknown date";
+      const nPhotos = Array.isArray(doc.photos) ? doc.photos.length : 0;
+      if(!confirm(
+        "Restore the backup from "+when+"?\n\n"
+        + "This REPLACES what is in this browser now:\n"
+        + "  · the dish library\n  · ratings, difficulty and every cost per serving\n"
+        + "  · prices, headcounts and percentages\n  · menu history\n"
+        + (nPhotos ? "  · all photos ("+nPhotos+" in the backup replace the ones here)\n" : "")
+        + "\nAnything not in the backup is lost. Carry on?")) return;
+
+      try{
+        if(doc.lib)   { LIB = applyDesc(applyOffTheme(doc.lib)); save(K.lib, LIB); }
+        if(doc.hist)  { HIST = doc.hist; save(K.hist, HIST); }
+        if(doc.meta)  { META = doc.meta; save(K.meta, META); }
+        if(doc.state) { save(K.state, doc.state); }
+      }catch(e){ toast("Restore failed: "+(e.message||e)); return; }
+
+      if(!nPhotos){ toast("Restored — reloading"); setTimeout(()=>location.reload(), 700); return; }
+      toast("Restoring "+nPhotos+" photos…");
+      clearAllPhotos()
+        .then(()=>doc.photos.reduce((chain,p)=>chain.then(()=>restorePhoto(p).catch(()=>{})),
+                                     Promise.resolve()))
+        .then(()=>{ toast("Restored — reloading"); setTimeout(()=>location.reload(), 700); })
+        .catch(()=>{ toast("Settings restored, photos failed — reloading"); setTimeout(()=>location.reload(), 900); });
+    };
+    r.readAsText(file);
+  };
+  f.click();
+}
+
+/* A backup nobody remembers to take is not a backup, so say plainly how old
+   the last one is and how much is riding on it. */
+function buildBackupState(){
+  const el2=document.getElementById("backupState"); if(!el2) return;
+  const costed = Object.values(META).filter(m=>m && m.c>0).length;
+  const rated  = Object.values(META).filter(m=>m && (m.r || m.f)).length;
+  const at = state.backupAt ? new Date(state.backupAt) : null;
+  const days = at ? Math.floor((Date.now()-at.getTime())/86400000) : null;
+  const holding = [];
+  if(costed) holding.push(costed+" dish cost"+(costed===1?"":"s"));
+  if(rated)  holding.push(rated+" rating"+(rated===1?"":"s"));
+  const dishes = ["mains","vegan","salads"].reduce((n,k)=>
+    n + DAYS.reduce((m,d)=>m + ((LIB[d]&&LIB[d][k])||[]).length, 0), 0);
+  if(dishes) holding.push(dishes+" dishes");
+  if(HIST.length) holding.push(HIST.length+" saved week"+(HIST.length===1?"":"s"));
+
+  let cls="warn", msg;
+  const list = holding.length>1
+    ? holding.slice(0,-1).join(", ")+" and "+holding[holding.length-1]
+    : holding[0]||"your work";
+  if(!at){
+    msg = "<b>Never backed up.</b> This browser is holding "+list+". There is no copy anywhere else.";
+  } else if(days>=14){
+    msg = "<b>Last backup was "+days+" days ago</b> ("+at.toLocaleDateString()+"). "
+        + "Anything you have changed since then only exists here.";
+  } else {
+    msg = "Last backed up <b>"+(days===0?"today":days===1?"yesterday":days+" days ago")
+        + "</b>, "+at.toLocaleString()+".";
+  }
+  el2.innerHTML = '<div class="'+(at&&days<14?"note":"warn")+'" style="margin-top:10px">'+msg+'</div>';
+}
+
+function wireBackup(){
+  const e=document.getElementById("bkExport"), i=document.getElementById("bkImport");
+  if(e) e.onclick=doBackup;
+  if(i) i.onclick=doRestore;
+  buildBackupState();
 }
 
 /* ================= misc ================= */
@@ -3090,7 +3247,7 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); buildLib(); buildHist(); render();
+  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); buildLib(); buildHist(); wireBackup(); render();
   wirePhotos();
   /* the photo count on each card needs the index, which only IndexedDB can
      answer — so the cards are drawn once now and refreshed when it lands */
