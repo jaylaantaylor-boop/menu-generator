@@ -173,6 +173,17 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .tile .v.neg{color:#d03b3b}
 /* minmax(0,1fr), not 1fr: a 1fr track refuses to shrink below its content's
    min-content width, so the nowrap dish names pushed the whole page sideways. */
+.pref{margin-top:10px;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:600;
+  border:1px solid var(--line);background:#fff}
+.pref.ok{background:#eefaf1;border-color:#bfe4cc;color:#1e6b39}
+.pref.warn{background:#fff6e5;border-color:#ecd9a8;color:#7a5a12}
+.pref.stop{background:#fdeceb;border-color:#f0c2be;color:#a12a22}
+.pref .hd{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;font-size:12.5px}
+.pref .hd .caret{margin-left:auto;font-weight:700;opacity:.65}
+.pref ul{margin:8px 0 0;padding-left:17px}
+.pref li{margin:3px 0;font-weight:600;line-height:1.45}
+.pref li b{font-weight:800}
+.pref .grp{margin-top:8px;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.75}
 .dishcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:14px}
 @media(max-width:760px){.dishcols{grid-template-columns:minmax(0,1fr)}}
 .dishcol{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#fff}
@@ -419,7 +430,8 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
           <button data-view="proj">Production</button>
           <button data-view="profit">Profit</button>
         </div>
-        <div class="legend" id="legend"></div></div>
+        <div class="legend" id="legend"></div>
+        <div id="preflight"></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button id="saveHist">✓ Save this week to history</button>
         <button id="copyTxt">Copy as text</button>
@@ -437,6 +449,11 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
     <summary>Dish library — everything you've served, plus new ideas</summary>
     <div class="body">
       <p class="note" style="margin:12px 0">Add your own dishes any time; they join the pool the next time you generate. Items marked <span class="chip new">NEW</span> are fresh concepts you have not run yet.</p>
+      <div class="photobar" style="margin-top:10px">
+        <input type="text" id="libSearch" placeholder="Search all 400+ dishes by name, ingredient or allergen…" style="flex:1;min-width:200px">
+        <button id="libClear">Clear</button>
+      </div>
+      <p class="note" id="libCount" style="margin:8px 0 0"></p>
       <div class="libgrid" id="libGrid"></div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button id="exportLib">Export library (JSON)</button>
@@ -1644,6 +1661,8 @@ function render(){
   if(typeof renderDaily==="function") renderDaily();
   if(typeof renderProjection==="function") renderProjection();
   if(typeof renderProfit==="function") renderProfit();
+  /* the menu just changed, so what pre-flight has to say about it changed too */
+  if(typeof buildPreflight==="function") buildPreflight();
 }
 
 /* ================= text version ================= */
@@ -2310,15 +2329,30 @@ function renderProjection(){
 
 /* ================= library panel ================= */
 const KIND_TITLE={mains:"Mains (#1 / #2)", vegan:"Vegan main (#3)", salads:"Salads (#4)"};
+let LIB_Q="";
+/* Search matches the name, the description and the allergen text, because
+   "what have I got with no gluten" is as real a question as "where is the ziti". */
+function libMatch(o){
+  if(!LIB_Q) return true;
+  return ((o.n||"")+" "+(o.d||"")+" "+(o.a||"")).toUpperCase().includes(LIB_Q);
+}
 function buildLib(){
-  const g=document.getElementById("libGrid"); g.innerHTML="";
+  const g=document.getElementById("libGrid"); if(!g) return; g.innerHTML="";
+  let shown=0, total=0;
   DAYS.forEach(d=>{
     const col=el("div","libcol");
     col.appendChild(el("h4",null,DAYNAME[d]+" — "+LIB[d].label));
+    let colShown=0;
     ["mains","vegan","salads"].forEach(kind=>{
-      col.appendChild(el("div",null,'<div style="font-size:10px;font-weight:800;color:#6b6b76;margin:8px 0 3px">'+KIND_TITLE[kind]+" ("+LIB[d][kind].length+")</div>"));
+      const all=LIB[d][kind];
+      total += all.length;
+      const hits=all.map((o,idx)=>({o,idx})).filter(x=>libMatch(x.o));
+      shown += hits.length; colShown += hits.length;
+      if(LIB_Q && !hits.length) return;          /* hide empty sections while searching */
+      col.appendChild(el("div",null,'<div style="font-size:10px;font-weight:800;color:#6b6b76;margin:8px 0 3px">'
+        + KIND_TITLE[kind] + " (" + (LIB_Q ? hits.length+" of "+all.length : all.length) + ")</div>"));
       const list=el("div","liblist");
-      LIB[d][kind].forEach((o,idx)=>{
+      hits.forEach(({o,idx})=>{
         const it=el("div","libitem");
         const meta = (o.d?'<div class="ld">'+o.d+"</div>":"")
                    + (o.a?'<div class="la">'+(o.a.toUpperCase()==="NONE"?"No common allergens":"Contains: "+o.a)+"</div>":"");
@@ -2329,6 +2363,7 @@ function buildLib(){
         it.appendChild(del); list.appendChild(it);
       });
       col.appendChild(list);
+      if(LIB_Q) return;                          /* adding while filtered is confusing */
       const add=el("div","addrow");
       const inp=el("input"); inp.type="text"; inp.placeholder="Dish name";
       const dsc=el("input"); dsc.type="text"; dsc.placeholder="What's in it";
@@ -2343,8 +2378,21 @@ function buildLib(){
       const add2=el("div","addrow"); add2.appendChild(dsc); add2.appendChild(alg);
       col.appendChild(add); col.appendChild(add2);
     });
-    g.appendChild(col);
+    if(!LIB_Q || colShown) g.appendChild(col);   /* a day with no matches drops out */
   });
+
+  const c=document.getElementById("libCount");
+  if(c) c.innerHTML = LIB_Q
+    ? (shown ? "<b>"+shown+"</b> of "+total+" dishes match &ldquo;"+LIB_Q.toLowerCase()+"&rdquo;."
+             : "Nothing matches &ldquo;"+LIB_Q.toLowerCase()+"&rdquo;.")
+    : total+" dishes across the week. Search to find one fast &mdash; adding is available with the search cleared.";
+}
+
+function wireLibSearch(){
+  const i=document.getElementById("libSearch"), b=document.getElementById("libClear");
+  if(!i) return;
+  i.oninput=()=>{ LIB_Q=i.value.trim().toUpperCase(); buildLib(); };
+  if(b) b.onclick=()=>{ i.value=""; LIB_Q=""; buildLib(); i.focus(); };
 }
 
 /* ================= history panel ================= */
@@ -2804,6 +2852,85 @@ function rateWarning(){
   } else w.innerHTML="";
 }
 
+/* ================= pre-flight =================
+   The last thing between a typo and 1,600 people holding the menu.  Two tiers:
+   things that should be fixed before it goes out, and things merely worth
+   knowing.  Nothing here blocks the download — it just refuses to be silent. */
+function runPreflight(){
+  /* Findings are grouped, not listed one per dish: twenty identical "no cost"
+     lines bury the one that says an allergen is missing. */
+  const noAllerg=[], noDesc=[], noCost=[], empty=[], dupes=[], noHeads=[];
+  const seen=new Map();
+
+  const check=(label, name, desc, allerg)=>{
+    const n=(name||"").trim();
+    if(!n){ empty.push(label); return; }
+    if(!String(allerg||"").trim()) noAllerg.push(n+" ("+label+")");
+    if(!String(desc||"").trim())   noDesc.push(n);
+    if(!metaFor(n).c)              noCost.push(n);
+    const key=n.toUpperCase();
+    seen.set(key, (seen.get(key)||[]).concat(label));
+  };
+
+  DAYS.forEach(d=>{
+    const day=state.days[d];
+    if(day.closed || day.special) return;
+    day.slots.forEach((sl,i)=>check(DAYNAME[d]+" "+SLOT_SHORT[ENTREE_SLOT_KEYS[i]], sl.t, sl.d, sl.a));
+  });
+  if(!state.sat.closed)
+    [1,2,3].forEach(i=>check("SAT #"+i, state.sat["m"+i], state.sat["d"+i], state.sat["a"+i]));
+
+  seen.forEach((where,name)=>{ if(where.length>1) dupes.push(name+" &mdash; "+where.join(" and ")); });
+  PROJ_DAYS.forEach(d=>{ if(!isClosed(d) && !(state.heads[d]>0)) noHeads.push(HEAD_LABEL[d]); });
+
+  const list=(a,max)=>a.slice(0,max||6).join(" &middot; ") + (a.length>(max||6) ? " &middot; and "+(a.length-(max||6))+" more" : "");
+  const uniq=a=>[...new Set(a)];
+
+  const stop=[], note=[];
+  if(noAllerg.length) stop.push("<b>"+noAllerg.length+" dish"+(noAllerg.length===1?" has":"es have")
+    +" no allergens filled in</b>, so the menu prints no allergen line for "
+    +(noAllerg.length===1?"it":"them")+": "+list(uniq(noAllerg),8));
+  if(empty.length)  stop.push("<b>"+empty.length+" empty slot"+(empty.length===1?"":"s")+":</b> "+list(empty));
+  if(dupes.length)  stop.push("<b>"+dupes.length+" dish"+(dupes.length===1?"":"es")
+    +" run twice this week:</b> "+list(dupes,4));
+
+  if(noCost.length) note.push("<b>"+noCost.length+" dish"+(noCost.length===1?" has":"es have")
+    +" no cost per serving</b>, so "+(noCost.length===1?"it counts":"they count")
+    +" as free on the Profit sheet: "+list(uniq(noCost),6));
+  if(noDesc.length) note.push("<b>"+noDesc.length+" dish"+(noDesc.length===1?" has":"es have")
+    +" no description:</b> "+list(uniq(noDesc),6));
+  if(noHeads.length) note.push("<b>No headcount</b> for "+list(noHeads)
+    +", so "+(noHeads.length===1?"that day makes":"those days make")+" nothing.");
+  if(!moneyNow().price) note.push("<b>No price per person</b>, so the Profit sheet shows no revenue.");
+
+  return {stop, note};
+}
+
+let PREF_OPEN=false;
+function buildPreflight(){
+  const el2=document.getElementById("preflight"); if(!el2) return;
+  const {stop, note} = runPreflight();
+  const n=stop.length, m=note.length;
+  const cls = n ? "stop" : (m ? "warn" : "ok");
+  const head = n ? (n+" thing"+(n===1?"":"s")+" to fix before this goes out")
+             : m ? (m+" thing"+(m===1?"":"s")+" worth knowing")
+                 : "Menu looks complete";
+  const icon = n ? "✕" : m ? "⚠" : "✓";
+
+  let html='<div class="pref '+cls+'"><div class="hd" id="prefHd">'
+    + '<span>'+icon+'</span><span>'+head+'</span>'
+    + ((n||m) ? '<span class="caret">'+(PREF_OPEN?"▴":"▾")+'</span>' : '')
+    + '</div>';
+  if((n||m) && PREF_OPEN){
+    if(n) html += '<div class="grp">Fix these</div><ul>'+stop.map(x=>"<li>"+x+"</li>").join("")+'</ul>';
+    if(m) html += '<div class="grp">Worth knowing</div><ul>'+note.map(x=>"<li>"+x+"</li>").join("")+'</ul>';
+  }
+  html += '</div>';
+  el2.innerHTML = html;
+  const hd=document.getElementById("prefHd");
+  if(hd && (n||m)) hd.onclick=()=>{ PREF_OPEN=!PREF_OPEN; buildPreflight(); };
+}
+
 /* ================= which dishes earn their place =================
    Cost, crew rating and difficulty already live per dish.  What was missing is
    whether anybody actually ate it — and that can be recovered, because history
@@ -2814,17 +2941,43 @@ const SLOT_SHORT = {e1:"#1", e2:"#2", veg:"#3", salad:"#4"};
 function liveDaysMap(){
   const m={}; DAYS.forEach(d=>m[d]=state.days[d].slots.map(s=>s.t)); return m;
 }
+/* Saturday runs one meat main, a vegan main and a salad, so its three names map
+   onto #1, #3 and #4 — there is no #2. */
+const SAT_SLOT_KEYS = ["e1","veg","salad"];
+function liveSatNames(){ return [state.sat.m1||"", state.sat.m2||"", state.sat.m3||""]; }
 
 /* Every day-slot a dish has filled, with what got made and what got taken.
    Saturday is skipped: its three items are not stored in the history record,
    so there is nothing to join them against. */
 function dishStats(){
   const bag=new Map();
-  const sources=[{days:liveDaysMap(), run:liveRun()}]
-    .concat(HIST.filter(h=>h.run && h.days).map(h=>({days:h.days, run:h.run})));
+  const sources=[{days:liveDaysMap(), sat:liveSatNames(), run:liveRun()}]
+    .concat(HIST.filter(h=>h.run && h.days).map(h=>({days:h.days, sat:h.sat, run:h.run})));
 
   sources.forEach(src=>{
     const mode = (src.run.actual && src.run.actual.mode==="taken") ? "taken" : "left";
+
+    /* Saturday, when the week recorded its three names.  Weeks saved before
+       that was stored simply contribute nothing here rather than guessing. */
+    const satNames = src.sat || [];
+    if(satNames.length){
+      const rec=(src.run.actual||{}).sat;
+      const people = rec && rec.people;
+      if(rec && people!=null && people>0){
+        const made = projectDay((src.run.heads||{}).sat||0, src.run.rates, {mergeE2:true}).counts;
+        SAT_SLOT_KEYS.forEach((key,i)=>{
+          const name=(satNames[i]||"").trim().toUpperCase(); if(!name) return;
+          const v = rec.n ? rec.n[key] : null;
+          if(v==null || !(v>=0)) return;
+          const m = made[key]||0;
+          const left = mode==="left" ? Math.min(v,m) : Math.max(0,m-v);
+          const e = bag.get(name) || {name, slots:{}, runs:0, made:0, taken:0, people:0};
+          e.slots[key]=1; e.runs++; e.made+=m; e.taken+=(m-left); e.people+=people;
+          bag.set(name,e);
+        });
+      }
+    }
+
     DAYS.forEach(d=>{
       const rec = (src.run.actual||{})[d]; if(!rec) return;
       const people = rec.people;
@@ -3055,6 +3208,7 @@ function refreshAfterHistoryChange(){
   buildHist();
   if(typeof buildTrend==="function") buildTrend();
   if(typeof buildDishes==="function") buildDishes();
+  if(typeof buildPreflight==="function") buildPreflight();
   if(typeof buildActualWeek==="function") buildActualWeek();
   if(typeof buildBackupState==="function") buildBackupState();
 }
@@ -3933,7 +4087,7 @@ function weekSnapshot(){
 function saveToHistory(weekOverride, labelOverride){
   const week  = weekOverride  || state.weekStart;
   const label = labelOverride || state.dateLabel;
-  const rec={week, label, days:{}};
+  const rec={week, label, days:{}, sat:[state.sat.m1||"", state.sat.m2||"", state.sat.m3||""]};
   DAYS.forEach(d=>rec.days[d]=state.days[d].slots.map(s=>s.t));
   rec.run = weekSnapshot();
   const i=HIST.findIndex(h=>h.week===rec.week);
@@ -4090,7 +4244,7 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); buildHist(); wireBackup(); render();
+  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render();
   wirePhotos();
   /* the photo count on each card needs the index, which only IndexedDB can
      answer — so the cards are drawn once now and refreshed when it lands */
