@@ -142,6 +142,26 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .headgrid input,.rategrid input{min-width:0;width:100%;text-align:center;font-weight:700}
 .subhead{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:16px 0 0}
 .subhead:first-child{margin-top:12px}
+.daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.daytabs button{padding:6px 13px;font-size:12px;font-weight:800;letter-spacing:.6px}
+.daytabs button.on{background:var(--red);color:#fff;border-color:var(--red)}
+.daytabs button:disabled{opacity:.4;cursor:default}
+.daytabs button.done{border-color:#2E7D46;color:#2E7D46}
+.daytabs button.done.on{background:#2E7D46;border-color:#2E7D46;color:#fff}
+.arows{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.arow{display:grid;grid-template-columns:1fr 62px 92px 84px;gap:8px;align-items:center;
+  padding:8px 11px;border-bottom:1px solid var(--line)}
+.arow:last-child{border-bottom:0}
+.arow.head{background:#fafafc;font-size:9.5px;font-weight:800;letter-spacing:.5px;
+  text-transform:uppercase;color:var(--muted)}
+.arow .nm{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arow .nm small{display:block;font-weight:600;color:var(--muted);font-size:10px;letter-spacing:.3px}
+.arow .made{font-size:13px;font-weight:700;text-align:right;color:var(--muted)}
+.arow input{width:100%;min-width:0;text-align:right;font-weight:700;padding:5px 7px;font-size:13px}
+.arow .out{font-size:11px;font-weight:800;text-align:right}
+.arow .out .ok{color:#2E7D46}.arow .out .short{color:var(--red)}.arow .out .none{color:#c9c9d1}
+.arow .out .near{color:#C8901A}.arow .out .far{color:var(--red)}
+@media(max-width:560px){.arow{grid-template-columns:1fr 50px 78px 70px;gap:6px;padding:7px 8px}}
 .moneygrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
 @media(max-width:900px){.moneygrid{grid-template-columns:repeat(2,1fr)}}
 .moneygrid input{min-width:0;width:100%;text-align:right;font-weight:700}
@@ -273,6 +293,22 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
       <p class="subhead">This week</p>
       <div class="kpis" id="kpiRow"></div>
       <div id="moneyWarn"></div>
+    </div>
+  </details>
+
+  <details class="panel" id="actualPanel">
+    <summary>What actually got served — the day after</summary>
+    <div class="body">
+      <p class="note" style="margin:12px 0 0">The production sheet says what to make. This says what came back. Fill it in at the end of a day and the app stops guessing what people take.</p>
+      <div class="bar" style="margin-top:12px">
+        <label class="f">You count<select id="aMode" style="min-width:210px">
+          <option value="left">What is LEFT OVER at the end</option>
+          <option value="taken">What WENT OUT during service</option>
+        </select></label>
+      </div>
+      <div class="daytabs" id="aTabs"></div>
+      <div id="aBody"></div>
+      <div id="aWeek"></div>
     </div>
   </details>
 
@@ -1145,10 +1181,25 @@ state.rates = Object.assign({}, RATE_DEFAULTS, state.rates||{});
 
 /* What it sells for and what it costs.  All zero to start: nobody but the
    owner knows these numbers, and a guessed price is worse than a blank one. */
+/* What actually happened, as opposed to what was planned.  null means "not
+   recorded" and 0 means "none left" — they are very different answers and the
+   difference has to survive round-tripping. */
+const blankActualDay = ()=>({people:null, n:{}});
+function ensureActuals(){
+  if(!state.actual || typeof state.actual!=="object") state.actual={mode:"left"};
+  if(state.actual.mode!=="left" && state.actual.mode!=="taken") state.actual.mode="left";
+  PROJ_DAYS.forEach(d=>{
+    if(!state.actual[d] || typeof state.actual[d]!=="object") state.actual[d]=blankActualDay();
+    if(typeof state.actual[d].n!=="object" || !state.actual[d].n) state.actual[d].n={};
+    if(state.actual[d].people!=null && !(state.actual[d].people>=0)) state.actual[d].people=null;
+  });
+}
+
 const MONEY_DEFAULTS = {price:22, labor:0, other:0};   /* set price per head on the contract */
 const UNIT_DEFAULTS  = {side:0, chips:0, dessert:0, fruit:0, drinks:0};
 state.money = Object.assign({}, MONEY_DEFAULTS, state.money||{});
 state.money.unit = Object.assign({}, UNIT_DEFAULTS, state.money.unit||{});
+ensureActuals();
 
 if(!state.dateLabel) state.dateLabel = autoLabel(state.weekStart);
 [1,2,3].forEach(i=>{ const e=DESC[state.sat["m"+i]];
@@ -2242,6 +2293,77 @@ function buildHist(){
   b.querySelectorAll(".delhist").forEach(x=>x.onclick=()=>{ HIST.splice(+x.dataset.i,1); save(K.hist,HIST); buildHist(); });
 }
 
+/* ================= what actually got served =================
+   The projection says what to make.  This says what came back.  Kitchens can
+   count leftovers far more easily than they can count servings, so that is the
+   default way in — but either end can be typed and the other is derived. */
+
+function actualPeople(dayKey){
+  const v = (state.actual[dayKey]||{}).people;
+  return (v==null || !(v>=0)) ? null : Math.floor(v);
+}
+function anyActuals(dayKey){
+  const r = state.actual[dayKey]; if(!r) return false;
+  if(actualPeople(dayKey)!=null) return true;
+  return PROJ_ROWS.some(([k])=>r.n[k]!=null);
+}
+
+/* One day, made vs taken vs left, per line. */
+function actualDay(dayKey){
+  const proj = dayProjection(dayKey);
+  if(proj.closed) return {closed:true};
+  const rec = state.actual[dayKey] || blankActualDay();
+  const made = proj.p ? proj.p.counts : {};
+  const mode = state.actual.mode;
+  const rows = PROJ_ROWS.filter(([k])=>!(dayKey==="sat" && k==="e2")).map(([k,lab,kind])=>{
+    const m = made[k] || 0;
+    const v = rec.n[k];
+    if(v==null || !(v>=0)) return {k, lab, kind, made:m, recorded:false};
+    const entered = Math.max(0, Math.floor(v));
+    const left  = mode==="left" ? Math.min(entered, m) : Math.max(0, m - entered);
+    const taken = m - left;
+    return {k, lab, kind, made:m, left, taken, recorded:true,
+            ranOut: left===0 && m>0, spare: left};
+  });
+  return {rows, people:actualPeople(dayKey), planned:proj.heads,
+          dishes:proj.dishes, special:!!proj.special};
+}
+
+/* Across every day that has been recorded: what share of the room actually
+   took each numbered item.  This is the number the planning percentages are
+   guessing at. */
+function actualRates(){
+  let people = 0; const taken = {};
+  PROJ_ROWS.forEach(([k])=>taken[k]=0);
+  let days = 0;
+  PROJ_DAYS.forEach(d=>{
+    const a = actualDay(d);
+    if(a.closed || a.special) return;
+    const p = a.people;
+    if(p==null || !p) return;
+    const rows = a.rows.filter(r=>r.recorded);
+    if(!rows.length) return;
+    days++; people += p;
+    rows.forEach(r=>{ taken[r.k] += r.taken; });
+  });
+  if(!people) return null;
+  const pct = {};
+  PROJ_ROWS.forEach(([k])=>{ pct[k] = taken[k]/people*100; });
+  return {people, days, taken, pct};
+}
+
+/* Turn what actually happened into the planning percentages.  The four
+   numbered slots are normalised to 100 because everyone takes exactly one. */
+function ratesFromActuals(){
+  const a = actualRates(); if(!a) return null;
+  const out = {};
+  const ent = ["e1","e2","veg","salad"];
+  const sum = ent.reduce((n,k)=>n + a.pct[k], 0);
+  if(sum > 0) ent.forEach(k=>{ out[k] = Math.round(a.pct[k]/sum*1000)/10; });
+  ADDON_KEYS.forEach(k=>{ out[k] = Math.round(a.pct[k]*10)/10; });
+  return out;
+}
+
 /* ================= profit =================
    Revenue is per person through the door.  Cost is what actually gets made,
    which is the projected portions including the buffer — you pay for the
@@ -2270,7 +2392,11 @@ function profitDay(dayKey){
   const d = dayProjection(dayKey);
   if(d.closed) return {closed:true};
   const m = moneyNow();
-  const revenue = d.heads * m.price;
+  /* Revenue follows people actually served once that has been recorded —
+     billing is per head, so a short day is a smaller invoice. */
+  const served = actualPeople(dayKey);
+  const billed = served!=null ? served : d.heads;
+  const revenue = billed * m.price;
   let food = 0; const unpriced = [];
 
   if(!d.special){
@@ -2285,7 +2411,8 @@ function profitDay(dayKey){
   ADDON_KEYS.forEach(k=>{ food += (d.p.counts[k]||0) * m.unit[k]; });
 
   const cost = food + m.labor + m.other;
-  return {heads:d.heads, revenue, food, labor:m.labor, other:m.other, cost,
+  return {heads:billed, planned:d.heads, actual:served!=null,
+          revenue, food, labor:m.labor, other:m.other, cost,
           net: revenue - cost, unpriced, special: !!d.special};
 }
 
@@ -2561,6 +2688,207 @@ function rateWarning(){
     w.innerHTML='<div class="warn">#1 to #4 add up to <b>'+cov+'%</b>, so '+(100-cov)+'% of people '
       +'get no entr&eacute;e at all. If everybody takes one, these four should come to 100.</div>';
   } else w.innerHTML="";
+}
+
+/* ================= actuals panel ================= */
+let A_DAY = "mon";
+
+function buildActualTabs(){
+  const g=document.getElementById("aTabs"); if(!g) return; g.innerHTML="";
+  PROJ_DAYS.forEach(d=>{
+    const closed=isClosed(d);
+    const b=el("button", (d===A_DAY?"on ":"") + (anyActuals(d)?"done":""), HEAD_LABEL[d]);
+    b.disabled=closed;
+    if(closed) b.title="Closed";
+    b.onclick=()=>{ A_DAY=d; buildActualTabs(); buildActualBody(); };
+    g.appendChild(b);
+  });
+}
+
+function buildActualBody(){
+  const body=document.getElementById("aBody"); if(!body) return;
+  body.innerHTML="";
+  const a = actualDay(A_DAY);
+  if(a.closed){ body.innerHTML='<div class="pempty">'+HEAD_LABEL[A_DAY]+' is closed.</div>';
+                buildActualWeek(); return; }
+
+  const rec = state.actual[A_DAY];
+  const wrap2=el("div");
+
+  /* people through the door */
+  const pw=el("div","bar"); pw.style.marginTop="14px";
+  const pl=el("label","f","People actually served on "+HEAD_LABEL[A_DAY]);
+  const pi=document.createElement("input");
+  pi.type="number"; pi.min="0"; pi.max="99999"; pi.style.width="150px";
+  pi.placeholder=String(a.planned||0);
+  pi.value = a.people==null ? "" : a.people;
+  pi.oninput=()=>{ const v=pi.value.trim();
+    rec.people = v==="" ? null : Math.max(0,Math.floor(numOr(v,0)));
+    persist(); buildActualTabs(); buildActualWeek(); buildKpis(); render(); };
+  pl.appendChild(pi); pw.appendChild(pl);
+  const note=el("div","f");
+  note.innerHTML='<span>&nbsp;</span><div style="font-size:11.5px;font-weight:600;color:#6b6b76;padding:9px 0">'
+    + 'You planned for <b>'+(a.planned||0)+'</b>.'
+    + (a.people!=null && a.planned ? (a.people===a.planned ? ' Bang on.'
+        : a.people<a.planned ? ' <b style="color:#B5191C">'+(a.planned-a.people)+' fewer</b> than planned.'
+        : ' <b style="color:#2E7D46">'+(a.people-a.planned)+' more</b> than planned.') : '')
+    + '</div>';
+  pw.appendChild(note);
+  wrap2.appendChild(pw);
+
+  if(a.special){
+    wrap2.appendChild(el("div","note",'<div class="warn" style="margin-top:12px">'
+      + HEAD_LABEL[A_DAY]+' is running a special, so there are no planned item counts to compare against. '
+      + 'The headcount above still counts.</div>'));
+    body.appendChild(wrap2); buildActualWeek(); return;
+  }
+
+  const leftMode = state.actual.mode==="left";
+  const rows=el("div","arows");
+  const head=el("div","arow head");
+  head.innerHTML='<div>Item</div><div style="text-align:right">Made</div>'
+    + '<div style="text-align:right">'+(leftMode?"Left over":"Went out")+'</div>'
+    + '<div style="text-align:right">'+(leftMode?"So taken":"So left")+'</div>';
+  rows.appendChild(head);
+
+  a.rows.forEach(r=>{
+    const row=el("div","arow");
+    const dishName = r.kind==="entree" ? (a.dishes[r.k]||"") : "";
+    const nm=el("div","nm");
+    nm.innerHTML = (r.kind==="entree" ? r.lab : RATE_LABEL[r.k].toUpperCase())
+      + (dishName ? "<small>"+dishName+"</small>" : "");
+    nm.title = dishName || RATE_LABEL[r.k];
+    row.appendChild(nm);
+    row.appendChild(el("div","made",String(r.made)));
+
+    const iw=el("div");
+    const i=document.createElement("input");
+    i.type="number"; i.min="0"; i.max=String(Math.max(r.made,99999)); i.placeholder="—";
+    const cur = rec.n[r.k];
+    i.value = (cur==null) ? "" : cur;
+    i.oninput=()=>{ const v=i.value.trim();
+      rec.n[r.k] = v==="" ? null : Math.max(0,Math.floor(numOr(v,0)));
+      persist(); buildActualTabs(); buildActualBody(); buildActualWeek(); buildKpis(); render(); };
+    iw.appendChild(i); row.appendChild(iw);
+
+    const out=el("div","out");
+    if(!r.recorded) out.innerHTML='<span class="none">—</span>';
+    else if(leftMode) out.innerHTML = r.taken + (r.ranOut ? ' <span class="short">RAN OUT</span>' : '');
+    else out.innerHTML = r.left + (r.ranOut ? ' <span class="short">RAN OUT</span>' : '');
+    row.appendChild(out);
+    rows.appendChild(row);
+  });
+  wrap2.appendChild(rows);
+
+  const short = a.rows.filter(r=>r.recorded && r.ranOut);
+  if(short.length){
+    wrap2.appendChild(el("div",null,'<div class="warn" style="margin-top:12px">'
+      + '<b>Nothing left of '+short.length+' item'+(short.length===1?"":"s")+'.</b> '
+      + 'That can mean it landed perfectly, or that people wanted more and there was none. '
+      + 'Worth a word with whoever was on the line.</div>'));
+  }
+  body.appendChild(wrap2);
+  buildActualWeek();
+}
+
+function buildActualWeek(){
+  const w=document.getElementById("aWeek"); if(!w) return;
+  const a = actualRates();
+  if(!a){ w.innerHTML='<p class="note" style="margin-top:14px">Nothing recorded yet this week. '
+    + 'Once a day or two is in, this is where the real take rates show up.</p>'; return; }
+
+  const planned = ratesNow(state.rates);
+  const rows = PROJ_ROWS.map(([k,lab,kind])=>{
+    const act = Math.round(a.pct[k]*10)/10, plan = planned[k];
+    const gap = Math.round((act-plan)*10)/10;
+    return '<div class="arow"><div class="nm">'+(kind==="entree"?lab:RATE_LABEL[k].toUpperCase())+'</div>'
+      + '<div class="made">'+plan+'%</div>'
+      + '<div class="made" style="color:#111">'+act+'%</div>'
+      /* Colour by how far off it is, not by which way — a big under is waste and
+         a big over is people taking two.  Both cost money. */
+      + '<div class="out">'+(Math.abs(gap)<1 ? '<span class="ok">on target</span>'
+          : '<span class="'+(Math.abs(gap)>=5?"far":"near")+'">'+(gap>0?"+":"")+gap+'</span>')
+      + '</div></div>';
+  }).join("");
+
+  /* The contract is one each and no seconds.  An extra going out at more than
+     100% of the people served means either the count is off or somebody is
+     taking two — and that is money leaving the door unbilled. */
+  /* 100.5 rather than 100 only to shrug off rounding — these come from integer
+     counts over thousands of people, so anything above that is real items. */
+  const overs = ADDON_KEYS.filter(k=>a.pct[k] > 100.5).map(k=>{
+    const extra = Math.round(a.taken[k] - a.people);
+    return RATE_LABEL[k].toUpperCase()+" "+(Math.round(a.pct[k]*10)/10)+"% ("+extra+" more than people)";
+  });
+
+  w.innerHTML =
+    '<p class="subhead">What people actually took &mdash; '+a.days+' day'+(a.days===1?"":"s")
+      +', '+a.people+' people</p>'
+    + '<div class="arows">'
+    + '<div class="arow head"><div>Item</div><div style="text-align:right">Planned</div>'
+      + '<div style="text-align:right">Actual</div><div style="text-align:right">Gap</div></div>'
+    + rows + '</div>'
+    + (overs.length ? '<div class="warn" style="margin-top:12px"><b>More went out than people came:</b> '
+        + overs.join(", ") + '. The contract is one each with no seconds, so either the count is off '
+        + 'or people are taking two &mdash; and you are buying the second one.</div>' : "")
+    + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button id="aApply">Use these as my percentages</button></div>';
+
+  const b=document.getElementById("aApply");
+  if(b) b.onclick=()=>{
+    const next = ratesFromActuals(); if(!next){ toast("Nothing recorded yet"); return; }
+    const ent=["e1","e2","veg","salad"].map(k=>RATE_LABEL[k]+" "+next[k]+"%").join(", ");
+    if(!confirm("Replace your planning percentages with what actually happened?\n\n"
+      + ent + "\n\nThe extras move to their recorded rates too. You can always change them by hand.")) return;
+    Object.assign(state.rates, next);
+    buildRateGrid(); buildActualWeek(); render(); persist();
+    toast("Percentages updated from what actually got served");
+  };
+}
+
+/* Switching how you count must not silently rewrite what you already recorded.
+   A "35" typed as leftovers is not a "35" of servings, so every stored number
+   is converted to its equivalent in the new mode. */
+function convertActuals(toMode){
+  if(toMode===state.actual.mode) return 0;
+  let n=0;
+  PROJ_DAYS.forEach(d=>{
+    const proj=dayProjection(d);
+    if(proj.closed || !proj.p) return;
+    const rec=state.actual[d]; if(!rec) return;
+    PROJ_ROWS.forEach(([k])=>{
+      const v=rec.n[k];
+      if(v==null || !(v>=0)) return;
+      const made=proj.p.counts[k]||0;
+      rec.n[k]=Math.max(0, made - Math.min(Math.floor(v), made));
+      n++;
+    });
+  });
+  state.actual.mode=toMode;
+  return n;
+}
+
+function wireActuals(){
+  const m=document.getElementById("aMode"); if(!m) return;
+  m.value = state.actual.mode;
+  m.onchange=()=>{
+    const was=state.actual.mode, now=m.value;
+    if(was===now) return;
+    const recorded = PROJ_DAYS.reduce((n,d)=>n + PROJ_ROWS.filter(([k])=>
+      (state.actual[d]||{n:{}}).n[k]!=null).length, 0);
+    if(recorded && !confirm(
+        "Switch to counting "+(now==="left"?"what is LEFT OVER":"what WENT OUT")+"?\n\n"
+        + "You have "+recorded+" number"+(recorded===1?"":"s")+" already recorded. They will be "
+        + "converted so they still mean the same thing.\n\nCarry on?")){
+      m.value=was; return;
+    }
+    const changed = convertActuals(now);
+    persist(); buildActualBody();
+    toast(changed ? "Switched and converted "+changed+" numbers" : "Switched");
+  };
+  const firstOpen = PROJ_DAYS.find(d=>!isClosed(d));
+  if(isClosed(A_DAY) && firstOpen) A_DAY=firstOpen;
+  buildActualTabs(); buildActualBody();
 }
 
 /* ================= money panel ================= */
@@ -3247,7 +3575,7 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); buildLib(); buildHist(); wireBackup(); render();
+  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildLib(); buildHist(); wireBackup(); render();
   wirePhotos();
   /* the photo count on each card needs the index, which only IndexedDB can
      answer — so the cards are drawn once now and refreshed when it lands */
