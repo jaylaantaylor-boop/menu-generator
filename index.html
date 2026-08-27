@@ -178,7 +178,14 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .sortlab{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
   color:var(--muted);align-self:center;margin-right:2px}
 .dishtable{min-width:760px}
+.trendtable{min-width:480px}
 .ttable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.ttable .del{border:0;background:none;color:#c33;font-size:15px;line-height:1;padding:0 4px;cursor:pointer}
+.ttable .del:hover{color:#8d1f1f}
+.undobar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  background:#fff6e5;border:1px solid #ecd9a8;color:#7a5a12;border-radius:8px;
+  padding:9px 12px;font-size:12px;font-weight:600;margin-top:12px}
+.undobar button{border:1px solid #d8c58e;background:#fff;color:#7a5a12;font-weight:700;padding:5px 12px}
 .ttable th,.ttable td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .ttable th:first-child,.ttable td:first-child{text-align:left}
 .ttable th{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
@@ -2350,7 +2357,7 @@ function buildHist(){
     h+='<td><button data-i="'+i+'" class="delhist" style="border:0;background:none;color:#c33">×</button></td></tr>';
   });
   b.innerHTML=h+"</table>";
-  b.querySelectorAll(".delhist").forEach(x=>x.onclick=()=>{ HIST.splice(+x.dataset.i,1); save(K.hist,HIST); buildHist(); buildTrend(); });
+  b.querySelectorAll(".delhist").forEach(x=>x.onclick=()=>{ const gone=HIST[+x.dataset.i]; if(gone) deleteWeek(gone.week); });
 }
 
 /* ================= what actually got served =================
@@ -2989,14 +2996,73 @@ function barChart(rows, opt){
     +esc(opt.aria||"")+'">'+g+'</svg></div>';
 }
 
+/* Deleting a saved week takes its actuals out of the take-rate averaging and
+   its dishes out of the rankings too, so the confirm spells out what goes and
+   the undo keeps it recoverable for the rest of the session. */
+let LAST_DELETED = null;
+
+function deleteWeek(weekKey){
+  const i = HIST.findIndex(h=>h.week===weekKey);
+  if(i<0){ toast("That week is not in history any more"); return; }
+  const rec = HIST[i], r = (rec.run && rec.run.result) || null;
+  const lines = [
+    "Delete " + (rec.label || rec.week) + " from history?",
+    "",
+    r ? "  " + r.people + " people served" : "  no figures recorded",
+    r ? "  revenue " + fmtMoney(r.revenue) + ", profit " + fmtMoney(r.net) : "",
+    "",
+    "It also stops counting toward your take rates and dish rankings.",
+    "You can undo this until you reload the page."
+  ].filter(x=>x!=="" || true);
+  if(!confirm(lines.join("\n"))) return;
+
+  LAST_DELETED = JSON.parse(JSON.stringify(rec));
+  HIST.splice(i,1);
+  save(K.hist, HIST);
+  refreshAfterHistoryChange();
+  toast("Deleted " + (rec.label || rec.week));
+}
+
+function undoDeleteWeek(){
+  if(!LAST_DELETED) return;
+  if(HIST.some(h=>h.week===LAST_DELETED.week)){
+    toast("That week is back in history already"); LAST_DELETED=null;
+    refreshAfterHistoryChange(); return;
+  }
+  HIST.push(LAST_DELETED);
+  HIST.sort((a,z)=>a.week<z.week?-1:1);
+  save(K.hist, HIST);
+  const label = LAST_DELETED.label || LAST_DELETED.week;
+  LAST_DELETED = null;
+  refreshAfterHistoryChange();
+  toast("Put " + label + " back");
+}
+
+/* Everything that reads history has to be redrawn, not just the trend. */
+function refreshAfterHistoryChange(){
+  buildHist();
+  if(typeof buildTrend==="function") buildTrend();
+  if(typeof buildDishes==="function") buildDishes();
+  if(typeof buildActualWeek==="function") buildActualWeek();
+  if(typeof buildBackupState==="function") buildBackupState();
+}
+
 function buildTrend(){
   const b=document.getElementById("trendBody"); if(!b) return;
   const weeks=trendWeeks();
   const total=HIST.filter(h=>h.run && h.run.result && h.run.result.people>0).length;
 
+  const undoBar = LAST_DELETED
+    ? '<div class="undobar"><span>Deleted <b>'+esc(LAST_DELETED.label||LAST_DELETED.week)
+      + '</b>. It is out of your averages until you put it back.</span>'
+      + '<button id="undoDel">Undo</button></div>'
+    : '';
+  const wireUndo = ()=>{ const u=document.getElementById("undoDel"); if(u) u.onclick=undoDeleteWeek; };
+
   if(!weeks.length){
-    b.innerHTML='<div class="pempty" style="margin-top:12px">Nothing to compare yet. '
+    b.innerHTML = undoBar + '<div class="pempty" style="margin-top:12px">Nothing to compare yet. '
       + 'Finish a week, hit <b>Save this week to history</b>, and each saved week shows up here.</div>';
+    wireUndo();
     return;
   }
 
@@ -3034,8 +3100,8 @@ function buildTrend(){
               +" revenue  ·  "+(Math.round(pc*10)/10)+"%"};
   });
 
-  b.innerHTML =
-    '<p class="note" style="margin:12px 0 0">'+total+' saved week'+(total===1?"":"s")
+  b.innerHTML = undoBar
+    + '<p class="note" style="margin:12px 0 0">'+total+' saved week'+(total===1?"":"s")
       + (total>TREND_MAX ? ' — showing the most recent '+TREND_MAX : '')
       + (dir ? '. Profit is <b>'+dir+'</b>.' : '.') + '</p>'
     + '<div class="tiles">'
@@ -3051,18 +3117,23 @@ function buildTrend(){
     + '<div class="card"><h4>Food cost as a share of revenue</h4>'
       + '<div class="sub">The dashed line is 35%, the usual catering target. Bars over it are red.</div>'
       + barChart(foodRows, {aria:"Food cost percentage for each saved week", ref:35, h:200}) + '</div>'
-    + '<div class="card"><h4>The same thing as numbers</h4>'
-      + '<table class="ttable"><tr><th>Week</th><th>Served</th><th>Revenue</th>'
-      + '<th>Food</th><th>Food %</th><th>Profit</th><th>Margin</th></tr>'
+    + '<div class="card"><h4>The same thing as numbers</h4><div class="plot">'
+      + '<table class="ttable trendtable"><tr><th>Week</th><th>Served</th><th>Revenue</th>'
+      + '<th>Food</th><th>Food %</th><th>Profit</th><th>Margin</th><th></th></tr>'
       + weeks.slice().reverse().map(w=>{
           const pc=w.r.revenue>0? w.r.food/w.r.revenue*100 : 0;
           const mg=w.r.revenue>0? w.r.net/w.r.revenue*100 : 0;
           return '<tr><td>'+esc(w.label)+'</td><td>'+w.r.people+'</td><td>'+fmtMoney(w.r.revenue)
             +'</td><td>'+fmtMoney(w.r.food)+'</td><td>'+fmtPct(pc)+'</td>'
             +'<td style="color:'+(w.r.net<0?"#d03b3b":"#0b0b0b")+';font-weight:700">'+fmtMoney(w.r.net)
-            +'</td><td>'+fmtPct(mg)+'</td></tr>';
+            +'</td><td>'+fmtPct(mg)+'</td>'
+            +'<td><button class="del" data-week="'+esc(w.week)+'" title="Delete this week">&times;</button></td>'
+            +'</tr>';
         }).join("")
-      + '</table></div>';
+      + '</table></div></div>';
+
+  wireUndo();
+  b.querySelectorAll(".del").forEach(x=>x.onclick=()=>deleteWeek(x.dataset.week));
 }
 
 /* ================= actuals panel ================= */
