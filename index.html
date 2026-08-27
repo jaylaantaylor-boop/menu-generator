@@ -160,6 +160,24 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .tile .v{font-size:23px;font-weight:800;margin-top:3px;letter-spacing:-.6px}
 .tile .s{font-size:10.5px;font-weight:700;color:var(--muted)}
 .tile .v.neg{color:#d03b3b}
+/* minmax(0,1fr), not 1fr: a 1fr track refuses to shrink below its content's
+   min-content width, so the nowrap dish names pushed the whole page sideways. */
+.dishcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:14px}
+@media(max-width:760px){.dishcols{grid-template-columns:minmax(0,1fr)}}
+.dishcol{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#fff}
+.dishcol.good{border-left:3px solid #2E7D46}
+.dishcol.bad{border-left:3px solid #d03b3b}
+.dishcol h4{margin:0;font-size:12.5px;font-weight:800}
+.dishcol .sub{font-size:10.5px;color:var(--muted);font-weight:600;margin:2px 0 7px}
+.dishcol .dl{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;
+  padding:4px 0;border-top:1px solid var(--line)}
+/* min-width:0 is what actually lets a flex child ellipsis — without it the long
+   dish names force the column wider than the phone and the whole page scrolls. */
+.dishcol .dl span{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.dishcol .dl b{white-space:nowrap;color:var(--muted);font-weight:700}
+.sortlab{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--muted);align-self:center;margin-right:2px}
+.dishtable{min-width:760px}
 .ttable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
 .ttable th,.ttable td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .ttable th:first-child,.ttable td:first-child{text-align:left}
@@ -337,6 +355,11 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
   <details class="panel" id="trendPanel">
     <summary>Trend — how the weeks compare</summary>
     <div class="body viz" id="trendBody"></div>
+  </details>
+
+  <details class="panel" id="dishPanel">
+    <summary>Which dishes earn their place</summary>
+    <div class="body viz" id="dishBody"></div>
   </details>
 
   <details class="panel" id="backupPanel">
@@ -2762,6 +2785,145 @@ function rateWarning(){
   } else w.innerHTML="";
 }
 
+/* ================= which dishes earn their place =================
+   Cost, crew rating and difficulty already live per dish.  What was missing is
+   whether anybody actually ate it — and that can be recovered, because history
+   stores which dish sat in which slot alongside the leftovers for that slot. */
+const ENTREE_SLOT_KEYS = ["e1","e2","veg","salad"];
+const SLOT_SHORT = {e1:"#1", e2:"#2", veg:"#3", salad:"#4"};
+
+function liveDaysMap(){
+  const m={}; DAYS.forEach(d=>m[d]=state.days[d].slots.map(s=>s.t)); return m;
+}
+
+/* Every day-slot a dish has filled, with what got made and what got taken.
+   Saturday is skipped: its three items are not stored in the history record,
+   so there is nothing to join them against. */
+function dishStats(){
+  const bag=new Map();
+  const sources=[{days:liveDaysMap(), run:liveRun()}]
+    .concat(HIST.filter(h=>h.run && h.days).map(h=>({days:h.days, run:h.run})));
+
+  sources.forEach(src=>{
+    const mode = (src.run.actual && src.run.actual.mode==="taken") ? "taken" : "left";
+    DAYS.forEach(d=>{
+      const rec = (src.run.actual||{})[d]; if(!rec) return;
+      const people = rec.people;
+      if(people==null || !(people>0)) return;
+      const made = projectDay((src.run.heads||{})[d]||0, src.run.rates).counts;
+      const names = src.days[d] || [];
+      ENTREE_SLOT_KEYS.forEach((key,i)=>{
+        const name=(names[i]||"").trim().toUpperCase(); if(!name) return;
+        const v = rec.n ? rec.n[key] : null;
+        if(v==null || !(v>=0)) return;
+        const m = made[key]||0;
+        const left = mode==="left" ? Math.min(v,m) : Math.max(0,m-v);
+        const e = bag.get(name) || {name, slots:{}, runs:0, made:0, taken:0, people:0};
+        e.slots[key]=1; e.runs++; e.made+=m; e.taken+=(m-left); e.people+=people;
+        bag.set(name,e);
+      });
+    });
+  });
+
+  return [...bag.values()].map(e=>{
+    const meta=metaFor(e.name);
+    const share = e.people>0 ? e.taken/e.people*100 : 0;
+    return Object.assign(e, {
+      slot: Object.keys(e.slots).map(k=>SLOT_SHORT[k]).sort().join("/"),
+      share, cost: meta.c||0, rating: meta.r||0, diff: meta.f||"",
+      spend: (meta.c||0)*e.taken,
+      perHead: e.people>0 ? (meta.c||0)*e.taken/e.people : 0
+    });
+  });
+}
+
+const median = arr => {
+  if(!arr.length) return 0;
+  const a=arr.slice().sort((x,y)=>x-y), h=Math.floor(a.length/2);
+  return a.length%2 ? a[h] : (a[h-1]+a[h])/2;
+};
+
+let DISH_SORT="share";
+function buildDishes(){
+  const b=document.getElementById("dishBody"); if(!b) return;
+  const rows=dishStats();
+
+  const onMenu=new Set();
+  DAYS.forEach(d=>state.days[d].slots.forEach(s=>{ if(s.t) onMenu.add(s.t.trim().toUpperCase()); }));
+  const noData=[...onMenu].filter(n=>!rows.some(r=>r.name===n));
+
+  if(!rows.length){
+    b.innerHTML='<div class="pempty" style="margin-top:12px">Nothing to rank yet. '
+      + 'Once you have recorded what got served on a day or two, every dish that ran shows up here '
+      + 'with how many people actually took it.</div>';
+    return;
+  }
+
+  const sorters={
+    share:(a,z)=>z.share-a.share,
+    cost:(a,z)=>z.cost-a.cost,
+    rating:(a,z)=>z.rating-a.rating,
+    runs:(a,z)=>z.runs-a.runs,
+    name:(a,z)=>a.name<z.name?-1:1
+  };
+  const sorted=rows.slice().sort(sorters[DISH_SORT]||sorters.share);
+
+  /* Two plain filters on two real numbers rather than an invented score.
+     Only dishes that have a cost can be judged on cost. */
+  const priced=rows.filter(r=>r.cost>0);
+  const mShare=median(rows.map(r=>r.share));
+  const mCost=median(priced.map(r=>r.cost));
+  const keep=priced.filter(r=>r.share>=mShare && r.cost<=mCost).sort((a,z)=>z.share-a.share).slice(0,6);
+  const drop=priced.filter(r=>r.share<mShare && r.cost>mCost).sort((a,z)=>a.share-z.share).slice(0,6);
+
+  const stars=n=>n? '<span style="color:#E8A317">'+"★".repeat(n)+'</span>'
+                    +'<span style="color:#dcdce2">'+"★".repeat(5-n)+'</span>'
+                  : '<span style="color:#c9c9d1">—</span>';
+  const dpill=f=>f? '<span style="background:'+DIFFS[f].col+';color:#fff;border-radius:6px;padding:1px 6px;'
+                    +'font-size:9px;font-weight:800;letter-spacing:.3px">'+DIFFS[f].label+'</span>'
+                  : '<span style="color:#c9c9d1">—</span>';
+
+  const sortBtn=(k,lab)=>'<button class="'+(DISH_SORT===k?"on":"")+'" data-sort="'+k+'">'+lab+'</button>';
+
+  b.innerHTML =
+    '<p class="note" style="margin:12px 0 0">Built from the days you have recorded. '
+      + '<b>Took it</b> is the share of people that day who chose that dish. The four numbered slots '
+      + 'share the room, so a day adds up to <b>at most</b> 100% &mdash; whatever is missing is food '
+      + 'that came back.'
+      + (noData.length ? ' '+noData.length+' dish'+(noData.length===1?"":"es")+' on this week\'s menu '
+          + 'have no recorded day yet.' : '')
+      + ' Saturday is not included: its items are not stored per week.</p>'
+
+    + (keep.length||drop.length ?
+       '<div class="dishcols">'
+       + (keep.length ? '<div class="dishcol good"><h4>Put these on more often</h4>'
+           + '<div class="sub">More popular than average, cheaper than average.</div>'
+           + keep.map(r=>'<div class="dl"><span>'+r.name+'</span><b>'+fmtPct(r.share)
+               +' · '+fmtMoney(r.cost,true)+'</b></div>').join("") + '</div>' : '')
+       + (drop.length ? '<div class="dishcol bad"><h4>Worth a second look</h4>'
+           + '<div class="sub">Less popular than average, dearer than average.</div>'
+           + drop.map(r=>'<div class="dl"><span>'+r.name+'</span><b>'+fmtPct(r.share)
+               +' · '+fmtMoney(r.cost,true)+'</b></div>').join("") + '</div>' : '')
+       + '</div>' : '')
+
+    + '<div class="daytabs" style="margin-top:14px"><span class="sortlab">Sort by</span>'
+      + sortBtn("share","Took it") + sortBtn("cost","Cost") + sortBtn("rating","Rating")
+      + sortBtn("runs","Times run") + sortBtn("name","Name") + '</div>'
+
+    + '<div class="plot"><table class="ttable dishtable"><tr>'
+      + '<th>Dish</th><th>Slot</th><th>Days run</th><th>Took it</th><th>Portions</th>'
+      + '<th>$ / serving</th><th>Food cost</th><th>Rating</th><th>Difficulty</th></tr>'
+      + sorted.map(r=>'<tr><td>'+r.name+'</td><td>'+r.slot+'</td><td>'+r.runs+'</td>'
+        + '<td><b>'+fmtPct(r.share)+'</b></td><td>'+r.taken.toLocaleString()+'</td>'
+        + '<td>'+(r.cost? fmtMoney(r.cost,true) : '<span style="color:#c9c9d1">not priced</span>')+'</td>'
+        + '<td>'+(r.cost? fmtMoney(r.spend) : '<span style="color:#c9c9d1">—</span>')+'</td>'
+        + '<td style="text-align:left">'+stars(r.rating)+'</td>'
+        + '<td style="text-align:left">'+dpill(r.diff)+'</td></tr>').join("")
+      + '</table></div>';
+
+  b.querySelectorAll("[data-sort]").forEach(x=>x.onclick=()=>{ DISH_SORT=x.dataset.sort; buildDishes(); });
+}
+
 /* ================= trend =================
    Two single-series charts rather than one with two scales: profit is dollars
    and food cost is a percentage, and putting both on one axis is the classic
@@ -2981,7 +3143,7 @@ function buildActualBody(){
     i.value = (cur==null) ? "" : cur;
     i.oninput=()=>{ const v=i.value.trim();
       rec.n[r.k] = v==="" ? null : Math.max(0,Math.floor(numOr(v,0)));
-      persist(); buildActualTabs(); buildActualBody(); buildActualWeek(); buildKpis(); render(); };
+      persist(); buildActualTabs(); buildActualBody(); buildActualWeek(); buildKpis(); buildDishes(); render(); };
     iw.appendChild(i); row.appendChild(iw);
 
     const out=el("div","out");
@@ -3697,6 +3859,7 @@ function saveToHistory(weekOverride, labelOverride){
   save(K.hist,HIST); buildHist();
   if(typeof buildActualWeek==="function") buildActualWeek();
   if(typeof buildTrend==="function") buildTrend();
+  if(typeof buildDishes==="function") buildDishes();
   toast("Week saved to history");
   return rec;
 }
@@ -3844,7 +4007,7 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildLib(); buildHist(); wireBackup(); render();
+  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); buildHist(); wireBackup(); render();
   wirePhotos();
   /* the photo count on each card needs the index, which only IndexedDB can
      answer — so the cards are drawn once now and refreshed when it lands */
