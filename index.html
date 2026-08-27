@@ -17,9 +17,41 @@
 }
 *{box-sizing:border-box}
 body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-header.top{background:#fff;border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
-header.top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.2px}
-header.top h1 span{color:var(--red)}
+/* Phone first: one sticky line, everything else behind the gear.  The old
+   layout put nine controls in a sticky bar that wrapped to five rows and ate
+   82% of a 375px screen before any menu showed. */
+header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.tbar{display:flex;align-items:center;gap:8px;padding:9px 12px}
+.tbar h1{font-size:14px;margin:0;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
+.tbar h1 span{color:var(--red)}
+.wkchip{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.4px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.tbar button{padding:7px 11px;font-size:13px;white-space:nowrap}
+.tbar button .tx{display:none}
+#gear.on{background:#ffe9a8;border-color:#e3c257}
+@media(min-width:420px){ .tbar button .tx{display:inline} .tbar button .ic{margin-right:4px} }
+.hsheet{display:none;border-top:1px solid var(--line);padding:12px;background:#fbfbfd;
+  max-height:64vh;overflow:auto}
+.hsheet.on{display:block}
+.hsheet .bar{display:flex;flex-direction:column;align-items:stretch;gap:11px}
+.hsheet .bar>label.f{width:100%}
+.hsheet .bar input,.hsheet .bar select{width:100%;min-width:0}
+.hsheet .bar input[type=checkbox]{width:auto;flex:0 0 auto}
+/* Desktop keeps the bar it always had: display:contents lifts these back out so
+   the title, fields and buttons sit on one wrapping row again. */
+@media(min-width:900px){
+  header.top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:14px 20px}
+  .tbar,.hsheet,.hsheet.on{display:contents}
+  .tbar h1{font-size:17px;order:0;align-self:center}
+  .wkchip,#gear{display:none}
+  .hsheet .bar{order:1;flex:1;display:flex;flex-direction:row;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .hsheet .bar>label.f{width:auto}   /* the phone rule stretches these; undo it here */
+  .hsheet .bar input,.hsheet .bar select{width:auto;min-width:120px}
+  .hsheet .bar #dateLabel{min-width:170px}
+  .hsheet .bar input[type=range]{width:130px;min-width:0}
+  .hsheet .bar #cooldown{width:80px;min-width:0}
+  #genAll{order:2}#dl{order:3}
+}
 .wrap{max-width:1500px;margin:0 auto;padding:20px}
 .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 label.f{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
@@ -104,22 +136,79 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .note{font-size:12px;color:var(--muted);margin:8px 0 0}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:22px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
 .toast.show{opacity:1}
+.headgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:12px}
+.rategrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+@media(max-width:900px){.headgrid{grid-template-columns:repeat(3,1fr)}.rategrid{grid-template-columns:repeat(2,1fr)}}
+.headgrid input,.rategrid input{min-width:0;width:100%;text-align:center;font-weight:700}
+.subhead{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:16px 0 0}
+.subhead:first-child{margin-top:12px}
+.moneygrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+@media(max-width:900px){.moneygrid{grid-template-columns:repeat(2,1fr)}}
+.moneygrid input{min-width:0;width:100%;text-align:right;font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.kpi .k{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font-size:22px;font-weight:800;margin-top:3px;letter-spacing:-.5px}
+.kpi .s{font-size:10.5px;font-weight:700;color:var(--muted)}
+.kpi .v.pos{color:#2E7D46}.kpi .v.neg{color:var(--red)}
+.pbtn{position:relative}
+.pbtn .cnt{position:absolute;top:-4px;right:-4px;background:#2E7D46;color:#fff;border-radius:8px;
+  font-size:8px;font-weight:800;padding:0 3px;line-height:11px;min-width:11px;text-align:center}
+.photobar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.photogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px}
+.pcard{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;cursor:pointer;
+  box-shadow:var(--shadow);display:flex;flex-direction:column}
+.pcard:hover{border-color:#b9b9c2}
+.pcard img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#eee}
+.pcard .nm{font-size:10.5px;font-weight:800;padding:6px 7px;line-height:1.25;color:var(--ink)}
+.pcard .nm small{display:block;font-weight:700;color:var(--muted);margin-top:2px}
+.pempty{border:1px dashed #d3d3d9;border-radius:10px;padding:26px;text-align:center;color:var(--muted);
+  font-size:12.5px;margin-top:14px}
+.lb{position:fixed;inset:0;background:rgba(10,10,13,.96);z-index:100;display:none;
+  flex-direction:column;padding:18px;gap:12px}
+.lb.on{display:flex}
+.lb .lbtop{display:flex;justify-content:space-between;align-items:center;gap:12px;color:#fff;flex-wrap:wrap}
+.lb .lbtop h3{margin:0;font-size:15px;font-weight:800;letter-spacing:.2px}
+.lb .lbtop .sub{font-size:11.5px;color:#b9b9c4;font-weight:600}
+.lb .stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.lb .stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;background:#000}
+.lb .stage .none{color:#9a9aa6;font-size:13px}
+.lb .film{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.lb .film img{height:64px;width:86px;object-fit:cover;border-radius:7px;cursor:pointer;
+  border:2px solid transparent;flex:0 0 auto}
+.lb .film img.on{border-color:#fff}
+.lb button{border:1px solid #55555f;background:#22222a;color:#fff}
+.lb button:hover{background:#33333d}
+.lb button.danger{color:#ff8f8f;border-color:#6b3a3a}
+.costin{display:flex;align-items:center;gap:4px;margin-top:3px}
+.costin span{font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.3px}
+.costin input{flex:1;min-width:0;border:1px solid #d8d8de;border-radius:6px;padding:2px 6px;
+  font-size:11px;font-weight:700;text-align:right}
+.costin input.unset{background:#fff6e5;border-color:#ecd9a8}
+.warn{background:#fff6e5;border:1px solid #ecd9a8;color:#7a5a12;border-radius:8px;padding:7px 10px;font-size:11.5px;font-weight:600;margin-top:10px}
 textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;border:1px solid #d8d8de;border-radius:8px;padding:10px}
 </style>
 </head>
 <body>
 <header class="top">
-  <h1>Menu <span>Generator</span></h1>
-  <div class="bar" style="flex:1">
-    <label class="f">Week of (Monday)<input type="date" id="weekStart"></label>
-    <label class="f">Date label<input type="text" id="dateLabel" style="min-width:170px"></label>
-    <label class="f">Title<select id="titleStyle"><option value="MENU">MENU</option><option value="WEEKLY MENU">WEEKLY MENU</option></select></label>
-    <label class="f">New ideas <span id="newPctOut">25%</span><input type="range" id="newPct" min="0" max="100" step="5" value="25" style="width:130px"></label>
-    <label class="f">No-repeat weeks<input type="number" id="cooldown" min="0" max="26" value="6" style="width:80px"></label>
-    <label class="f">Themes<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="themeLock" checked> Stick to weekday themes</label></label>
-    <label class="f">Footer<select id="barStyle"><option value="qr">Logo + QR codes</option><option value="logo">Logo only</option></select></label>
-    <button class="go" id="genAll">⚡ Generate week</button>
-    <button class="primary" id="dl">⬇ Download PNG</button>
+  <div class="tbar">
+    <h1>Menu <span>Generator</span></h1>
+    <div class="wkchip" id="wkChip"></div>
+    <button id="gear" title="Settings" aria-expanded="false" aria-controls="hdrSheet">⚙︎</button>
+    <button class="go" id="genAll"><span class="ic">⚡</span><span class="tx">Generate week</span></button>
+    <button class="primary" id="dl"><span class="ic">⬇</span><span class="tx">Download PNG</span></button>
+  </div>
+  <div class="hsheet" id="hdrSheet">
+    <div class="bar">
+      <label class="f">Week of (Monday)<input type="date" id="weekStart"></label>
+      <label class="f">Date label<input type="text" id="dateLabel"></label>
+      <label class="f">Title<select id="titleStyle"><option value="MENU">MENU</option><option value="WEEKLY MENU">WEEKLY MENU</option></select></label>
+      <label class="f">New ideas <span id="newPctOut">25%</span><input type="range" id="newPct" min="0" max="100" step="5" value="25"></label>
+      <label class="f">No-repeat weeks<input type="number" id="cooldown" min="0" max="26" value="6"></label>
+      <label class="f">Themes<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="themeLock" checked> Stick to weekday themes</label></label>
+      <label class="f">Footer<select id="barStyle"><option value="qr">Logo + QR codes</option><option value="logo">Logo only</option></select></label>
+    </div>
   </div>
 </header>
 
@@ -130,12 +219,75 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
     <summary>Saturday strip</summary>
     <div class="body">
       <div class="bar" style="margin-top:12px">
-        <label class="f" style="flex:1">#1 Main<input type="text" id="sat1" style="width:100%"><input type="text" id="satd1" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata1" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"></label>
-        <label class="f" style="flex:1">#2 Vegan main &amp; vegetarian side<input type="text" id="sat2" style="width:100%"><input type="text" id="satd2" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata2" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"></label>
-        <label class="f" style="flex:1">#3 Salad<input type="text" id="sat3" style="width:100%"><input type="text" id="satd3" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata3" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"></label>
-        <label class="f"><span>&nbsp;</span><label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0"><input type="checkbox" id="satClosed"> Closed</label></label>
+        <label class="f" style="flex:1">#1 Main<input type="text" id="sat1" style="width:100%"><input type="text" id="satd1" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata1" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc1" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
+        <label class="f" style="flex:1">#2 Vegan main &amp; vegetarian side<input type="text" id="sat2" style="width:100%"><input type="text" id="satd2" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata2" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc2" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
+        <label class="f" style="flex:1">#3 Salad<input type="text" id="sat3" style="width:100%"><input type="text" id="satd3" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata3" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc3" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
+        <label class="f"><span>&nbsp;</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button id="satPhoto1" title="Photos of the #1 main">📷 #1</button><button id="satPhoto2" title="Photos of the vegan main">📷 #2</button><button id="satPhoto3" title="Photos of the salad">📷 #3</button></div><label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;margin-top:6px"><input type="checkbox" id="satClosed"> Closed</label></label>
       </div>
       <p class="note">This strip rarely changes, so it is not part of the weekly re-roll. Edit it here when it does.</p>
+    </div>
+  </details>
+
+  <details class="panel" id="projPanel">
+    <summary>Headcount &amp; take rates — drives the production counts</summary>
+    <div class="body">
+      <p class="subhead">How many people are you feeding?</p>
+      <div class="bar" style="margin-top:10px">
+        <label class="f">Same all week<input type="number" id="headsAll" min="0" max="99999" placeholder="e.g. 1600" style="width:130px"></label>
+        <button id="headsApply">Apply to every open day</button>
+        <button id="headsClear">Clear</button>
+      </div>
+      <div class="headgrid" id="headGrid"></div>
+
+      <p class="subhead">Of those people, how many take each thing?</p>
+      <p class="note" style="margin:5px 0 0"><b>#1 to #4 are a choice</b> &mdash; one entr&eacute;e per person &mdash; so those four split the room and should add up to 100%.
+      <b>The extras below are handed to everyone</b>, so each sits at 100% on its own. Drop one to 0% on a day you are not serving it.
+      <b>Extra buffer is 0</b> because the contract is one lunch each with no seconds &mdash; the kitchen makes exactly the headcount. Raise it only for a job that allows seconds.</p>
+      <div class="rategrid" id="rateGrid"></div>
+      <div id="rateWarn"></div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button id="rateReset">Reset percentages to defaults</button>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel" id="moneyPanel">
+    <summary>Money — what you charge, what it costs, what you keep</summary>
+    <div class="body">
+      <p class="subhead">What you charge</p>
+      <div class="moneygrid">
+        <label class="f">Price per person $<input type="number" id="mPrice" min="0" step="0.25" placeholder="0.00"></label>
+      </div>
+
+      <p class="subhead">What it costs you a day</p>
+      <div class="moneygrid">
+        <label class="f">Labor per day $<input type="number" id="mLabor" min="0" step="10" placeholder="0"></label>
+        <label class="f">Other per day $<input type="number" id="mOther" min="0" step="10" placeholder="0"></label>
+      </div>
+      <p class="note" style="margin:5px 0 0">Other covers anything that is not food or wages &mdash; fuel, packaging, propane, the things you pay for every day you run.</p>
+
+      <p class="subhead">Cost per unit on the extras</p>
+      <div class="moneygrid" id="unitGrid"></div>
+      <p class="note" style="margin:5px 0 0">These are bought by the unit rather than cooked, so one price each covers the week. Entr&eacute;e costs are set per dish on the day cards above.</p>
+
+      <p class="subhead">This week</p>
+      <div class="kpis" id="kpiRow"></div>
+      <div id="moneyWarn"></div>
+    </div>
+  </details>
+
+  <details class="panel" id="photoPanel">
+    <summary>Photo library — what each dish should look like</summary>
+    <div class="body">
+      <p class="note" style="margin:12px 0 0">Photos live on <b>this device only</b> and never leave it. They do not sync to your phone &mdash; each device builds its own, so use Export to move them across.</p>
+      <div class="photobar">
+        <input type="text" id="pSearch" placeholder="Search dishes…" style="flex:1;min-width:180px">
+        <button id="pAddAny">＋ Add photo to a dish</button>
+        <button id="pExport">Export photos</button>
+        <button id="pImport">Import photos</button>
+      </div>
+      <p class="note" id="pStorage" style="margin:8px 0 0"></p>
+      <div id="pBody"></div>
     </div>
   </details>
 
@@ -146,6 +298,8 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
           <button class="on" data-view="menu">Menu</button>
           <button data-view="sheet">Order sheet</button>
           <button data-view="daily">Daily prep</button>
+          <button data-view="proj">Production</button>
+          <button data-view="profit">Profit</button>
         </div>
         <div class="legend" id="legend"></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -157,6 +311,8 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
     <canvas id="cv" width="2304" height="1728"></canvas>
     <canvas id="cv2" width="2304" height="1728" style="display:none"></canvas>
     <canvas id="cv3" width="2304" height="1728" style="display:none"></canvas>
+    <canvas id="cv4" width="2304" height="1728" style="display:none"></canvas>
+    <canvas id="cv5" width="2304" height="1728" style="display:none"></canvas>
   </div>
 
   <details class="panel">
@@ -181,6 +337,18 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
     <summary>Text version</summary>
     <div class="body"><textarea class="txt" id="txtOut" readonly></textarea></div>
   </details>
+</div>
+<div class="lb" id="lb">
+  <div class="lbtop">
+    <div><h3 id="lbName">—</h3><div class="sub" id="lbSub"></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="lbAdd">＋ Add photo</button>
+      <button id="lbDel" class="danger">Delete this photo</button>
+      <button id="lbClose">Close</button>
+    </div>
+  </div>
+  <div class="stage" id="lbStage"></div>
+  <div class="film" id="lbFilm"></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -916,11 +1084,11 @@ let HIST = load(K.hist, null) || JSON.parse(JSON.stringify(SEED_HISTORY));
    nobody knows what the crew liked except the kitchen. */
 let META = load(K.meta, null) || {};
 const DIFFS = {easy:{label:"EASY", col:"#2E7D46"}, med:{label:"MED", col:"#C8901A"}, hard:{label:"HARD", col:"#C0392B"}};
-function metaFor(name){ return META[(name||"").trim().toUpperCase()] || {r:0, f:""}; }
+function metaFor(name){ return Object.assign({r:0,f:"",c:0}, META[(name||"").trim().toUpperCase()]); }
 function setMeta(name, patch){
   const k=(name||"").trim().toUpperCase(); if(!k) return;
-  META[k] = Object.assign({r:0,f:""}, META[k], patch);
-  if(!META[k].r && !META[k].f) delete META[k];
+  META[k] = Object.assign({r:0,f:"",c:0}, META[k], patch);
+  if(!META[k].r && !META[k].f && !META[k].c) delete META[k];
   save(K.meta, META);
 }
 
@@ -948,6 +1116,27 @@ let state = load(K.state, null) || {
   sat: {closed:false, m1:"1 CHEESE BURGER AND 1 BEEF HOTDOG", m2:"IMPOSSIBLE BURGER", m3:"BOSS SALAD",
         d1:"",a1:"",d2:"",a2:"",d3:"",a3:""}
 };
+/* Headcount and take rates.  Added after the first release, so they are
+   defaulted in rather than assumed — an existing saved state has neither. */
+const PROJ_DAYS = ["mon","tue","wed","thu","fri","sat"];
+/* The contract is one lunch each and no seconds, so the buffer is 0 — the
+   kitchen makes exactly the headcount.  The field stays because a different
+   job might want one. */
+const RATE_DEFAULTS = {e1:40, e2:35, veg:10, salad:15,
+                       side:100, chips:100, dessert:100, fruit:100, drinks:100, buffer:0};
+if(!state.heads || typeof state.heads!=="object") state.heads={};
+/* 1600 a day is the normal run for this contract, so that is the starting
+   point rather than a zero he would have to fill in six times. */
+PROJ_DAYS.forEach(d=>{ if(typeof state.heads[d]!=="number") state.heads[d]=1600; });
+state.rates = Object.assign({}, RATE_DEFAULTS, state.rates||{});
+
+/* What it sells for and what it costs.  All zero to start: nobody but the
+   owner knows these numbers, and a guessed price is worse than a blank one. */
+const MONEY_DEFAULTS = {price:22, labor:0, other:0};   /* set price per head on the contract */
+const UNIT_DEFAULTS  = {side:0, chips:0, dessert:0, fruit:0, drinks:0};
+state.money = Object.assign({}, MONEY_DEFAULTS, state.money||{});
+state.money.unit = Object.assign({}, UNIT_DEFAULTS, state.money.unit||{});
+
 if(!state.dateLabel) state.dateLabel = autoLabel(state.weekStart);
 [1,2,3].forEach(i=>{ const e=DESC[state.sat["m"+i]];
   if(e){ if(!state.sat["d"+i]) state.sat["d"+i]=e[0]; if(!state.sat["a"+i]) state.sat["a"+i]=e[1]; } });
@@ -1014,7 +1203,12 @@ function buildGrid(){
       lk.onclick=()=>{ s.lock=!s.lock; buildGrid(); persist(); };
       const rr=el("button",null,"🎲"); rr.title="Swap just this item";
       rr.onclick=()=>{ const was=s.lock; s.lock=false; generate(d,i); s.lock=was; };
-      btns.appendChild(lk); btns.appendChild(rr); lab.appendChild(btns);
+      const ph=el("button","pbtn","📷");
+      const pc=photoCount(s.t);
+      ph.title = pc ? pc+" photo"+(pc===1?"":"s")+" of this dish" : "Photos of this dish";
+      if(pc) ph.appendChild(el("span","cnt",String(pc)));
+      ph.onclick=()=>openPhotos(s.t);
+      btns.appendChild(lk); btns.appendChild(rr); btns.appendChild(ph); lab.appendChild(btns);
       const ta=el("textarea"); ta.value=s.t; ta.rows=2;
       ta.oninput=()=>{ s.t=ta.value.toUpperCase(); s.isNew=false;
         const e=DESC[s.t]; if(e){ s.d=e[0]; s.a=e[1]; de.value=s.d; ag.value=s.a; }
@@ -1042,6 +1236,21 @@ function buildGrid(){
       });
       rate.appendChild(stars); rate.appendChild(diff);
 
+      /* cost per serving — same idea as the rating: set it once, it follows
+         the dish into every future week */
+      const ci=el("div","costin");
+      ci.appendChild(el("span",null,"$/SERVING"));
+      const cin=el("input"); cin.type="number"; cin.min="0"; cin.step="0.05";
+      cin.placeholder="0.00"; cin.title="What one portion of this dish costs you to make";
+      const syncCost=()=>{ const c0=metaFor(s.t).c;
+        cin.value = c0 ? c0 : ""; cin.classList.toggle("unset", !c0 && !!s.t); };
+      syncCost();
+      cin.oninput=()=>{ setMeta(s.t, {c: Math.max(0,numOr(cin.value,0))});
+        cin.classList.toggle("unset", !numOr(cin.value,0) && !!s.t);
+        buildKpis(); render(); };   /* no buildGrid — it would steal focus mid-type */
+      ci.appendChild(cin);
+      rate.appendChild(ci);
+
       wrap.appendChild(lab); wrap.appendChild(ta); wrap.appendChild(de); wrap.appendChild(ag);
       wrap.appendChild(rate);
       slots.appendChild(wrap);
@@ -1051,7 +1260,7 @@ function buildGrid(){
     const cb=el("label"); const c=el("input"); c.type="checkbox"; c.checked=day.closed;
     c.onchange=()=>{ day.closed=c.checked; if(c.checked) day.special="";
       if(!day.closed && !day.special) refillIfBlank(d);
-      buildGrid(); render(); persist(); };
+      buildGrid(); buildHeadGrid(); render(); persist(); };
     cb.appendChild(c); cb.appendChild(document.createTextNode("Closed"));
     const sp=el("input"); sp.type="text"; sp.placeholder="Special (e.g. 4TH OF JULY BUFFET)"; sp.value=day.special;
     sp.oninput=()=>{ const was=day.special; day.special=sp.value.toUpperCase();
@@ -1300,6 +1509,8 @@ function render(){
   buildText();
   if(typeof renderSheet==="function") renderSheet();
   if(typeof renderDaily==="function") renderDaily();
+  if(typeof renderProjection==="function") renderProjection();
+  if(typeof renderProfit==="function") renderProfit();
 }
 
 /* ================= text version ================= */
@@ -1742,6 +1953,228 @@ function renderDaily(){
   window.__dailyText = text + "Staples (oil, salt, flour, seasoning) are not listed.\n";
 }
 
+/* ================= production counts =================
+   Headcount in, portions out.  The arithmetic lives in projectDay() and is
+   deliberately pure — no DOM, no state — so it can be reasoned about and
+   tested on its own.  Everything below it just draws the answer. */
+
+/* key, printed label, entree|addon.  Order here is the order on the sheet. */
+/* The four numbered items on the menu are a choice — one entree per person —
+   so their percentages share the room and should come to 100.  Everything in
+   the second group is handed to everybody, so each sits at 100% on its own. */
+const PROJ_ROWS = [
+  ["e1",      "#1",      "entree"],
+  ["e2",      "#2",      "entree"],
+  ["veg",     "#3",      "entree"],
+  ["salad",   "#4",      "entree"],
+  ["side",    "SIDE",    "addon"],
+  ["chips",   "CHIPS",   "addon"],
+  ["dessert", "DESSERT", "addon"],
+  ["fruit",   "FRUIT",   "addon"],
+  ["drinks",  "DRINKS",  "addon"]
+];
+const ADDON_KEYS = PROJ_ROWS.filter(r=>r[2]==="addon").map(r=>r[0]);
+const RATE_LABEL = {
+  e1:"#1 Main", e2:"#2 Main", veg:"#3 Vegan", salad:"#4 Salad",
+  side:"Side", chips:"Chips", dessert:"Dessert", fruit:"Fruit",
+  drinks:"Drinks", buffer:"Extra buffer"
+};
+const TOTAL_LABEL = {e1:"#1 MAIN", e2:"#2 MAIN", veg:"#3 VEGAN", salad:"#4 SALAD",
+                     side:"SIDE", chips:"CHIPS", dessert:"DESSERT", fruit:"FRUIT",
+                     drinks:"DRINKS"};
+const numOr = (v,d)=>{ const n=Number(v); return Number.isFinite(n) ? n : d; };
+
+function ratesNow(raw){
+  const r={}; Object.keys(RATE_DEFAULTS).forEach(k=>{
+    r[k]=Math.max(0, Math.min(500, numOr(raw&&raw[k], RATE_DEFAULTS[k]))); });
+  return r;
+}
+function portions(heads, pct, buffer){
+  if(!(heads>0) || !(pct>0)) return 0;
+  /* Round to 6dp before ceiling.  200 x 50% x 1.10 lands on 110.00000000000001
+     in binary floating point, and a bare ceil() would bill that as 111 portions. */
+  const raw = Math.round(heads * (pct/100) * (1 + buffer/100) * 1e6) / 1e6;
+  return Math.ceil(raw);
+}
+/* opts.mergeE2 folds #2's share into #1 — Saturday runs a single meat main,
+   so the people who would have taken #2 take #1 instead. */
+function projectDay(heads, raw, opts){
+  const r = ratesNow(raw);
+  if(opts && opts.mergeE2){ r.e1 = r.e1 + r.e2; r.e2 = 0; }
+  const h = Math.max(0, Math.floor(numOr(heads,0)));
+  const out = {heads:h, counts:{}, entreeTotal:0, addonTotal:0};
+  PROJ_ROWS.forEach(([key,,kind])=>{
+    const n = portions(h, r[key], r.buffer);
+    out.counts[key] = n;
+    if(kind==="entree") out.entreeTotal += n; else out.addonTotal += n;
+  });
+  out.entreeCoverage = r.e1 + r.e2 + r.veg + r.salad;
+  return out;
+}
+
+/* What each day is actually serving, paired with its projected counts.
+   Saturday's three items sit in different slots to a weekday's four. */
+function dayProjection(dayKey){
+  const heads = state.heads[dayKey] || 0;
+  if(dayKey==="sat"){
+    if(state.sat.closed) return {closed:true};
+    const p = projectDay(heads, state.rates, {mergeE2:true});
+    return {p, heads:p.heads, dishes:{e1:state.sat.m1||"", e2:"", veg:state.sat.m2||"", salad:state.sat.m3||""}};
+  }
+  const day = state.days[dayKey];
+  if(day.closed) return {closed:true};
+  const p = projectDay(heads, state.rates);
+  const sl = day.slots;
+  return {p, heads:p.heads, special:day.special||"",
+          dishes:{e1:(sl[0]||{}).t||"", e2:(sl[1]||{}).t||"", veg:(sl[2]||{}).t||"", salad:(sl[3]||{}).t||""}};
+}
+
+const PJ_COLW = DP_COLW, PJ_COLX = DP_COLX;
+
+function renderProjection(){
+  const cv=document.getElementById("cv4"), c=cv.getContext("2d");
+  c.fillStyle="#fff"; c.fillRect(0,0,W,H); c.lineJoin="round"; c.textBaseline="alphabetic";
+
+  c.strokeStyle=BLK; c.lineWidth=5; rr(c,120,165,2063,154,42); c.stroke();
+  c.font="700 58px "+FONT; c.textAlign="center"; c.fillStyle=RED;
+  c.fillText("PRODUCTION COUNTS", 856, 266);
+  c.strokeStyle=BLK; c.lineWidth=6; c.setLineDash([7,15]);
+  c.beginPath(); c.moveTo(1565,172); c.lineTo(1565,312); c.stroke(); c.setLineDash([]);
+  c.font="700 45px "+FONT; c.fillStyle=RED; c.fillText(state.dateLabel||"", 1874, 258);
+
+  let text = "PRODUCTION COUNTS  "+state.dateLabel+"\n\n";
+  const totals = {}; PROJ_ROWS.forEach(([k])=>totals[k]=0);
+  let totalHeads = 0, anyHeads = false;
+
+  /* Content is drawn first and the column boxes are sized to fit it afterwards.
+     A fixed-height box leaves half the sheet empty on a normal week. */
+  const colEnd = [];
+
+  DP_DAYS.forEach(([key,label],i)=>{
+    const x=PJ_COLX[i];
+    const d = dayProjection(key);
+    let y = 468;
+    text += label+"\n";
+
+    if(d.closed){
+      c.font="700 17px "+FONT; c.textAlign="center"; c.fillStyle=BLK;
+      c.fillText("CLOSED", x+PJ_COLW/2, y);
+      colEnd.push(y+10);
+      text += "  CLOSED\n\n"; return;
+    }
+
+    /* headcount, the number everything else hangs off */
+    c.textAlign="center";
+    c.font="700 11px "+FONT; c.fillStyle="#8A8A93";
+    spaced(c,"PEOPLE EXPECTED", x+PJ_COLW/2, y, 1.4);
+    c.font="700 66px "+FONT; c.fillStyle = d.heads ? BLK : "#C9C9D1";
+    c.fillText(d.heads ? String(d.heads) : "—", x+PJ_COLW/2, y+66);
+    y += 104;
+    totalHeads += d.heads; if(d.heads) anyHeads = true;
+    text += "  "+(d.heads||0)+" people\n";
+
+    c.strokeStyle="#E2E2E7"; c.lineWidth=1;
+    c.beginPath(); c.moveTo(x+14,y-14); c.lineTo(x+PJ_COLW-14,y-14); c.stroke();
+
+    const sectionLabel=(txt)=>{
+      c.textAlign="left"; c.font="700 10.5px "+FONT; c.fillStyle="#8A8A93";
+      spaced(c, txt, x+14+c.measureText(txt).width/2, y, 1.2);
+      c.strokeStyle="#E2E2E7"; c.lineWidth=1;
+      c.beginPath(); c.moveTo(x+14, y+5); c.lineTo(x+PJ_COLW-14, y+5); c.stroke();
+      y += 22;
+    };
+
+    /* one line: number chip, dish name, portion count in a box on the right */
+    const row=(chip, name, n, muted)=>{
+      const boxW=62, boxX=x+PJ_COLW-14-boxW;
+      if(chip){
+        c.fillStyle=RED; rr(c, x+14, y-10, 17, 13, 3.5); c.fill();
+        c.fillStyle="#fff"; c.font="700 10px "+FONT; c.textAlign="center";
+        c.fillText(chip, x+22.5, y);
+      }
+      c.textAlign="left"; c.font="700 12.5px "+FONT; c.fillStyle = muted ? "#8A8A93" : RED;
+      const lines = wrap(c, name || "—", PJ_COLW - 52 - boxW - 8);
+      lines.slice(0,2).forEach((l,li)=>c.fillText(l, x+(chip?37:14), y + li*15));
+      const nameH = Math.min(lines.length,2)*15;
+
+      c.fillStyle = n ? "#F2F2F5" : "#FAFAFC";
+      rr(c, boxX, y-15, boxW, 26, 7); c.fill();
+      c.font="700 19px "+FONT; c.textAlign="center";
+      c.fillStyle = n ? BLK : "#C9C9D1";
+      c.fillText(n ? String(n) : "0", boxX+boxW/2, y+4);
+
+      y += Math.max(nameH, 26) + 9;
+      text += "    "+(chip?chip+" ":"")+(name||"—")+" ......... "+n+"\n";
+    };
+
+    if(d.special){
+      sectionLabel("SPECIAL");
+      c.textAlign="left"; c.font="700 12.5px "+FONT; c.fillStyle=RED;
+      wrap(c, d.special, PJ_COLW-28).forEach(l=>{ c.fillText(l, x+14, y); y+=16; });
+      y += 12;
+      text += "    SPECIAL: "+d.special+"\n";
+    } else {
+      sectionLabel("MAKE THIS MANY");
+      text += "    MAKE THIS MANY\n";
+      PROJ_ROWS.filter(r=>r[2]==="entree").forEach(([k,lab])=>{
+        if(key==="sat" && k==="e2") return;          /* Saturday has no #2 */
+        const n = d.p.counts[k];
+        totals[k] += n;
+        row(key==="sat" ? {e1:"1",veg:"2",salad:"3"}[k] : lab.replace("#",""), d.dishes[k], n, false);
+      });
+      y += 6;
+    }
+
+    sectionLabel("ALSO PUT OUT");
+    text += "    ALSO PUT OUT\n";
+    ADDON_KEYS.forEach(k=>{
+      const n = d.p ? d.p.counts[k] : 0;
+      totals[k] += n;
+      row("", RATE_LABEL[k].toUpperCase(), n, true);
+    });
+    colEnd.push(y);
+    text += "\n";
+  });
+
+  /* boxes last, all the same height, sized to the tallest column */
+  const boxBottom = Math.min(1588, Math.max(763, Math.max.apply(null, colEnd) + 22));
+  DP_DAYS.forEach(([,label],i)=>{
+    const x=PJ_COLX[i];
+    c.strokeStyle=BLK; c.lineWidth=4; rr(c,x,343,PJ_COLW,boxBottom-343,26); c.stroke();
+    c.fillStyle=BLK; rr(c,x+9,357,PJ_COLW-18,62,19); c.fill();
+    c.fillStyle="#fff"; c.font="400 32px "+FONT; c.textAlign="left";
+    spaced(c,label,x+PJ_COLW/2,400,9);
+  });
+
+  /* week totals strip */
+  const ty = boxBottom + 62;
+  c.textAlign="left";
+  const parts = [["PEOPLE", totalHeads]].concat(PROJ_ROWS.map(([k])=>[TOTAL_LABEL[k], totals[k]]));
+  c.font="700 11px "+FONT; c.fillStyle="#8A8A93";
+  spaced(c,"WEEK TOTAL",120+c.measureText("WEEK TOTAL").width/2,ty-30,1.4);
+  c.strokeStyle="#E2E2E7"; c.lineWidth=1;
+  c.beginPath(); c.moveTo(120,ty-20); c.lineTo(2183,ty-20); c.stroke();
+  let tx = 120;
+  parts.forEach(([lab,n],i)=>{
+    c.textAlign="left";
+    c.font="700 11px "+FONT; c.fillStyle="#8A8A93"; c.fillText(lab, tx, ty+2);
+    c.font="700 30px "+FONT; c.fillStyle= i===0 ? RED : BLK; c.fillText(String(n), tx, ty+36);
+    tx += Math.max(c.measureText(lab).width, 90) + 68;
+  });
+  text += "WEEK TOTAL  "+parts.map(([l,n])=>l+" "+n).join("  |  ")+"\n";
+
+  c.textAlign="left"; c.font="italic 400 16px "+FONT; c.fillStyle="#5A5A63";
+  const bufNow = ratesNow(state.rates).buffer;
+  c.fillText(anyHeads
+    ? (bufNow > 0
+        ? "Counts include a "+bufNow+"% buffer and are rounded up to whole portions. Set the headcount and percentages in the app."
+        : "One of each per person, no seconds — no buffer added. Rounded up to whole portions where a split does not divide evenly.")
+    : "No headcount entered yet — open “Headcount & take rates” in the app and put in how many people you are feeding.",
+    120, Math.min(1700, ty+82));
+
+  window.__projText = text;
+}
+
 /* ================= library panel ================= */
 const KIND_TITLE={mains:"Mains (#1 / #2)", vegan:"Vegan main (#3)", salads:"Salads (#4)"};
 function buildLib(){
@@ -1796,6 +2229,711 @@ function buildHist(){
   b.querySelectorAll(".delhist").forEach(x=>x.onclick=()=>{ HIST.splice(+x.dataset.i,1); save(K.hist,HIST); buildHist(); });
 }
 
+/* ================= profit =================
+   Revenue is per person through the door.  Cost is what actually gets made,
+   which is the projected portions including the buffer — you pay for the
+   buffer whether or not anybody eats it. */
+
+function moneyNow(){
+  const m = Object.assign({}, MONEY_DEFAULTS, state.money||{});
+  Object.keys(MONEY_DEFAULTS).forEach(k=>{ m[k]=Math.max(0, numOr(m[k],0)); });
+  m.unit = Object.assign({}, UNIT_DEFAULTS, (state.money||{}).unit||{});
+  Object.keys(UNIT_DEFAULTS).forEach(k=>{ m.unit[k]=Math.max(0, numOr(m.unit[k],0)); });
+  return m;
+}
+function dishCost(name){ return Math.max(0, numOr(metaFor(name).c, 0)); }
+
+function fmtMoney(n, cents){
+  const neg = n < 0; n = Math.abs(n);
+  const s = cents ? n.toFixed(2) : String(Math.round(n));
+  const bits = s.split(".");
+  return (neg?"-$":"$") + bits[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (bits[1]?"."+bits[1]:"");
+}
+function fmtPct(n){ return (Math.round(n*10)/10) + "%"; }
+
+/* One day's money.  `unpriced` is the honest bit: any dish still without a
+   cost per serving makes the food cost too low and the profit too high. */
+function profitDay(dayKey){
+  const d = dayProjection(dayKey);
+  if(d.closed) return {closed:true};
+  const m = moneyNow();
+  const revenue = d.heads * m.price;
+  let food = 0; const unpriced = [];
+
+  if(!d.special){
+    PROJ_ROWS.filter(r=>r[2]==="entree").forEach(([k])=>{
+      if(dayKey==="sat" && k==="e2") return;
+      const name = d.dishes[k], n = d.p.counts[k];
+      if(!name || !n) return;
+      const c = dishCost(name);
+      if(c > 0) food += n * c; else unpriced.push(name);
+    });
+  }
+  ADDON_KEYS.forEach(k=>{ food += (d.p.counts[k]||0) * m.unit[k]; });
+
+  const cost = food + m.labor + m.other;
+  return {heads:d.heads, revenue, food, labor:m.labor, other:m.other, cost,
+          net: revenue - cost, unpriced, special: !!d.special};
+}
+
+/* Where the food money actually goes, biggest first.  Entree dishes are rolled
+   up across the week; the five extras come in as their own lines.  The rows are
+   built from the same numbers as the totals, so they add back up to food cost. */
+function foodBreakdown(){
+  const bag = new Map();
+  const add=(name, n, unit)=>{
+    if(!n) return;
+    const e = bag.get(name) || {name, portions:0, cost:0, unit};
+    e.portions += n; e.cost += n*unit; e.unit = unit;
+    bag.set(name, e);
+  };
+  const m = moneyNow();
+  PROJ_DAYS.forEach(k=>{
+    const d = dayProjection(k);
+    if(d.closed) return;
+    if(!d.special){
+      PROJ_ROWS.filter(r=>r[2]==="entree").forEach(([slot])=>{
+        if(k==="sat" && slot==="e2") return;
+        const name=d.dishes[slot]; if(!name) return;
+        add(name, d.p.counts[slot], dishCost(name));
+      });
+    }
+    ADDON_KEYS.forEach(key=>add(RATE_LABEL[key].toUpperCase(), d.p.counts[key], m.unit[key]));
+  });
+  return [...bag.values()].sort((a,b)=>b.cost-a.cost);
+}
+
+function profitWeek(){
+  const days = {}, tot = {heads:0, revenue:0, food:0, labor:0, other:0, cost:0, net:0};
+  const unpriced = new Set();
+  PROJ_DAYS.forEach(k=>{
+    const p = profitDay(k); days[k] = p;
+    if(p.closed) return;
+    ["heads","revenue","food","labor","other","cost","net"].forEach(f=>tot[f]+=p[f]);
+    p.unpriced.forEach(n=>unpriced.add(n));
+  });
+  tot.foodPct   = tot.revenue > 0 ? tot.food/tot.revenue*100 : 0;
+  tot.margin    = tot.revenue > 0 ? tot.net /tot.revenue*100 : 0;
+  tot.perHead   = tot.heads   > 0 ? tot.cost/tot.heads       : 0;  /* also the break-even price */
+  tot.netPerHead= tot.heads   > 0 ? tot.net /tot.heads       : 0;
+  return {days, tot, unpriced:[...unpriced]};
+}
+
+/* ---- the printable P&L ---- */
+const PF_LABW = 320, PF_COLW = 249;
+const PF_X = i => 120 + PF_LABW + i*PF_COLW;
+const PF_COLS = [["mon","MON"],["tue","TUE"],["wed","WED"],["thu","THU"],
+                 ["fri","FRI"],["sat","SAT"],["__wk","WEEK"]];
+
+function renderProfit(){
+  const cv=document.getElementById("cv5"), c=cv.getContext("2d");
+  c.fillStyle="#fff"; c.fillRect(0,0,W,H); c.lineJoin="round"; c.textBaseline="alphabetic";
+
+  c.strokeStyle=BLK; c.lineWidth=5; rr(c,120,165,2063,154,42); c.stroke();
+  c.font="700 58px "+FONT; c.textAlign="center"; c.fillStyle=RED;
+  c.fillText("PROFIT", 856, 266);
+  c.strokeStyle=BLK; c.lineWidth=6; c.setLineDash([7,15]);
+  c.beginPath(); c.moveTo(1565,172); c.lineTo(1565,312); c.stroke(); c.setLineDash([]);
+  c.font="700 45px "+FONT; c.fillStyle=RED; c.fillText(state.dateLabel||"", 1874, 258);
+
+  const {days, tot, unpriced} = profitWeek();
+  const live = tot.revenue > 0 || tot.cost > 0;
+  let text = "PROFIT  "+state.dateLabel+"\n\n";
+
+  /* five headline tiles across the top */
+  const TW=391, TG=27, TY=355, TH=172;
+  const tiles=[
+    ["REVENUE",     fmtMoney(tot.revenue), BLK,  ""],
+    ["FOOD COST",   fmtMoney(tot.food),    BLK,  live? fmtPct(tot.foodPct)+" of revenue":""],
+    ["LABOR + OTHER", fmtMoney(tot.labor+tot.other), BLK, ""],
+    ["NET PROFIT",  fmtMoney(tot.net),     tot.net<0?RED:GREEN, live? fmtPct(tot.margin)+" margin":""],
+    ["PER PERSON",  fmtMoney(tot.netPerHead,true), tot.netPerHead<0?RED:GREEN, "profit each"]
+  ];
+  tiles.forEach(([lab,val,col,sub],i)=>{
+    const x=120+i*(TW+TG);
+    c.strokeStyle="#E2E2E7"; c.lineWidth=3; rr(c,x,TY,TW,TH,20); c.stroke();
+    c.textAlign="left"; c.font="700 13px "+FONT; c.fillStyle="#8A8A93";
+    spaced(c,lab,x+26+c.measureText(lab).width/2,TY+40,1.6);
+    c.font="700 52px "+FONT; c.fillStyle=live?col:"#C9C9D1";
+    c.fillText(live?val:"—", x+26, TY+104);
+    if(sub && live){ c.font="700 15px "+FONT; c.fillStyle="#8A8A93"; c.fillText(sub, x+26, TY+140); }
+  });
+  text += "REVENUE "+fmtMoney(tot.revenue)+"  |  FOOD "+fmtMoney(tot.food)
+        + "  |  LABOR+OTHER "+fmtMoney(tot.labor+tot.other)
+        + "  |  NET "+fmtMoney(tot.net)+" ("+fmtPct(tot.margin)+")\n\n";
+
+  /* day-by-day table */
+  const TOP=600;
+  c.textAlign="center"; c.font="700 15px "+FONT;
+  PF_COLS.forEach(([k,lab],i)=>{
+    const x=PF_X(i);
+    if(k==="__wk"){ c.fillStyle=BLK; rr(c,x,TOP-42,PF_COLW-10,44,12); c.fill(); c.fillStyle="#fff"; }
+    else c.fillStyle="#8A8A93";
+    spaced(c,lab,x+(PF_COLW-10)/2,TOP-12,3);
+  });
+
+  const ROWS=[
+    ["PEOPLE",      d=>d.closed?null:d.heads,          v=>String(v),                false],
+    ["REVENUE",     d=>d.closed?null:d.revenue,        v=>fmtMoney(v),              false],
+    ["FOOD COST",   d=>d.closed?null:d.food,           v=>fmtMoney(v),              false],
+    ["LABOR",       d=>d.closed?null:d.labor,          v=>fmtMoney(v),              false],
+    ["OTHER",       d=>d.closed?null:d.other,          v=>fmtMoney(v),              false],
+    ["TOTAL COST",  d=>d.closed?null:d.cost,           v=>fmtMoney(v),              true ],
+    ["NET PROFIT",  d=>d.closed?null:d.net,            v=>fmtMoney(v),              true ],
+    ["MARGIN",      d=>d.closed||!d.revenue?null:d.net/d.revenue*100, v=>fmtPct(v), false],
+    ["PROFIT / HEAD", d=>d.closed||!d.heads?null:d.net/d.heads, v=>fmtMoney(v,true), false]
+  ];
+  let y = TOP + 46;
+  ROWS.forEach(([lab,get,fmt,strong],ri)=>{
+    if(ri%2===0){ c.fillStyle="#FAFAFC"; c.fillRect(120,y-30,2063,52); }
+    c.textAlign="left"; c.font=(strong?"700 17px ":"700 15px ")+FONT;
+    c.fillStyle=strong?BLK:"#5A5A63"; c.fillText(lab, 134, y+4);
+
+    PF_COLS.forEach(([k],i)=>{
+      const x=PF_X(i), isWk = k==="__wk";
+      let v;
+      if(isWk){
+        v = lab==="PEOPLE"?tot.heads : lab==="REVENUE"?tot.revenue : lab==="FOOD COST"?tot.food
+          : lab==="LABOR"?tot.labor : lab==="OTHER"?tot.other : lab==="TOTAL COST"?tot.cost
+          : lab==="NET PROFIT"?tot.net : lab==="MARGIN"?(tot.revenue?tot.margin:null)
+          : (tot.heads?tot.netPerHead:null);
+      } else v = get(days[k]);
+
+      c.textAlign="center";
+      if(v===null||v===undefined){
+        c.font="700 14px "+FONT; c.fillStyle="#C9C9D1"; c.fillText("—", x+(PF_COLW-10)/2, y+4);
+      } else {
+        c.font=((strong||isWk)?"700 18px ":"700 16px ")+FONT;
+        c.fillStyle = (lab==="NET PROFIT"||lab==="PROFIT / HEAD") ? (v<0?RED:GREEN) : BLK;
+        c.fillText(fmt(v), x+(PF_COLW-10)/2, y+4);
+      }
+    });
+    y += 52;
+  });
+
+  PROJ_DAYS.forEach(k=>{
+    const d=days[k];
+    text += k.toUpperCase()+": " + (d.closed ? "closed"
+      : d.heads+" people, revenue "+fmtMoney(d.revenue)+", cost "+fmtMoney(d.cost)
+        +", net "+fmtMoney(d.net)) + "\n";
+  });
+  text += "\nWEEK: "+tot.heads+" people, revenue "+fmtMoney(tot.revenue)
+        + ", cost "+fmtMoney(tot.cost)+", net "+fmtMoney(tot.net)
+        + " ("+fmtPct(tot.margin)+" margin)\n";
+
+  /* break-even and the unpriced-dish caveat */
+  let ny = y + 34;
+  c.textAlign="left";
+  if(live && tot.heads){
+    const head="Break even at "+fmtMoney(tot.perHead,true)+" a head.";
+    c.font="700 19px "+FONT; c.fillStyle=BLK;
+    c.fillText(head, 134, ny);
+    const bw=c.measureText(head).width;          /* measured while still bold */
+    c.font="400 19px "+FONT; c.fillStyle="#5A5A63";
+    c.fillText("You are charging "+fmtMoney(moneyNow().price,true)+" a head.", 134+bw+14, ny);
+    text += "Break even at "+fmtMoney(tot.perHead,true)+" a head; charging "+fmtMoney(moneyNow().price,true)+".\n";
+    ny += 40;
+  }
+  /* ---- where the food money goes ---- */
+  if(live && tot.food>0){
+    const rows = foodBreakdown().filter(r=>r.cost>0);
+    if(rows.length){
+      c.textAlign="left"; c.font="700 13px "+FONT; c.fillStyle="#8A8A93";
+      spaced(c,"WHERE THE FOOD MONEY GOES",134+c.measureText("WHERE THE FOOD MONEY GOES").width/2,ny,1.6);
+      c.strokeStyle="#E2E2E7"; c.lineWidth=1;
+      c.beginPath(); c.moveTo(134,ny+12); c.lineTo(2169,ny+12); c.stroke();
+      ny += 40;
+
+      /* Only as many rows as actually fit above the bottom edge — and if some
+         are dropped, say so rather than quietly showing a partial list. */
+      const CW=1000, CX=[134,1169], RH=34;
+      const floorY = unpriced.length ? 1560 : 1660;
+      const perCol = Math.max(3, Math.floor((floorY - ny) / RH));
+      const shown  = Math.min(rows.length, perCol*2);
+      const hidden = rows.slice(shown);
+      const vis    = rows.slice(0, shown);
+      const per    = Math.ceil(vis.length/2);
+      /* column header */
+      [0,1].forEach(ci=>{
+        if(ci*per>=rows.length) return;
+        const x=CX[ci];
+        c.font="700 10.5px "+FONT; c.fillStyle="#A0A0A9";
+        c.textAlign="left";   c.fillText("DISH", x, ny-8);
+        c.textAlign="right";  c.fillText("PORTIONS", x+CW-330, ny-8);
+        c.fillText("$ EACH",  x+CW-190, ny-8);
+        c.fillText("WEEK COST", x+CW-20, ny-8);
+      });
+      vis.forEach((r,i)=>{
+        const ci = i<per ? 0 : 1, x = CX[ci], row = i - ci*per, ry = ny + row*RH;
+        if(row%2===0){ c.fillStyle="#FAFAFC"; c.fillRect(x-14, ry-19, CW, RH); }
+        c.textAlign="left"; c.font="700 15px "+FONT; c.fillStyle=BLK;
+        let nm=r.name; while(c.measureText(nm).width>CW-350) nm=nm.slice(0,-2);
+        c.fillText(nm, x, ry+2);
+        c.textAlign="right"; c.font="700 15px "+FONT; c.fillStyle="#5A5A63";
+        c.fillText(String(r.portions), x+CW-330, ry+2);
+        c.fillText(fmtMoney(r.unit,true), x+CW-190, ry+2);
+        c.fillStyle=BLK; c.fillText(fmtMoney(r.cost), x+CW-20, ry+2);
+      });
+      ny += per*RH + 20;
+      if(hidden.length){
+        const rest = hidden.reduce((a,r)=>a+r.cost,0);
+        c.textAlign="left"; c.font="italic 400 15px "+FONT; c.fillStyle="#8A8A93";
+        c.fillText("+ "+hidden.length+" more dish"+(hidden.length===1?"":"es")+" not listed, "
+                   +fmtMoney(rest)+" between them. Full list in the text version.", 134, ny);
+        ny += 30;
+      }
+      text += "\nWHERE THE FOOD MONEY GOES\n"
+           + rows.map(r=>"  "+r.name+"  x"+r.portions+" @ "+fmtMoney(r.unit,true)
+                          +" = "+fmtMoney(r.cost)).join("\n") + "\n";
+    }
+  }
+
+  if(unpriced.length){
+    c.fillStyle="#FFF6E5"; c.strokeStyle="#ECD9A8"; c.lineWidth=2;
+    rr(c,120,ny-26,2063,unpriced.length>3?96:70,14); c.fill(); c.stroke();
+    c.font="700 17px "+FONT; c.fillStyle="#7A5A12";
+    c.fillText(unpriced.length+" dish"+(unpriced.length===1?"":"es")+" on this menu have no cost per serving, so the food cost above is too low and the profit too high:", 144, ny+2);
+    c.font="400 15px "+FONT;
+    wrap(c, unpriced.join(" · "), 2015).slice(0,3).forEach((l,i)=>c.fillText(l, 144, ny+28+i*22));
+    text += "\nNOT PRICED YET: "+unpriced.join(", ")+"\n";
+  } else if(!live){
+    c.font="italic 400 18px "+FONT; c.fillStyle="#5A5A63";
+    c.fillText("Nothing priced yet — open “Money” in the app and put in what you charge a head and what things cost you.", 134, ny);
+  }
+
+  window.__profitText = text;
+}
+
+/* ================= headcount & rates panel ================= */
+const HEAD_LABEL = {mon:"MON",tue:"TUE",wed:"WED",thu:"THU",fri:"FRI",sat:"SAT"};
+function isClosed(d){ return d==="sat" ? state.sat.closed : state.days[d].closed; }
+
+function buildHeadGrid(){
+  const g=document.getElementById("headGrid"); g.innerHTML="";
+  PROJ_DAYS.forEach(d=>{
+    const closed=isClosed(d);
+    const l=el("label","f", HEAD_LABEL[d] + (closed?" <span style=\"color:#c33\">CLOSED</span>":""));
+    const i=document.createElement("input");
+    i.type="number"; i.min="0"; i.max="99999"; i.value=state.heads[d]||"";
+    i.placeholder="0"; i.disabled=closed;
+    i.oninput=()=>{ state.heads[d]=Math.max(0,Math.floor(numOr(i.value,0))); render(); persist(); };
+    l.appendChild(i); g.appendChild(l);
+  });
+}
+
+function buildRateGrid(){
+  const g=document.getElementById("rateGrid"); g.innerHTML="";
+  Object.keys(RATE_DEFAULTS).forEach(k=>{
+    const l=el("label","f", RATE_LABEL[k]+" %");
+    const i=document.createElement("input");
+    i.type="number"; i.min="0"; i.max="500"; i.step="5"; i.value=state.rates[k];
+    i.oninput=()=>{ state.rates[k]=Math.max(0,Math.min(500,numOr(i.value,RATE_DEFAULTS[k])));
+      rateWarning(); render(); persist(); };
+    l.appendChild(i); g.appendChild(l);
+  });
+  rateWarning();
+}
+
+/* The one mistake that is easy to make here: entrees are a choice, so their
+   three percentages share the room.  Say so out loud rather than silently
+   producing counts for 140% of the people in the building. */
+function rateWarning(){
+  const w=document.getElementById("rateWarn"); if(!w) return;
+  const r=ratesNow(state.rates), cov=r.e1+r.e2+r.veg+r.salad;
+  if(cov>100){
+    w.innerHTML='<div class="warn">#1 to #4 add up to <b>'+cov+'%</b> of the room. '
+      +'Everyone takes one entr&eacute;e, so this makes '+(cov-100)+'% more entr&eacute;es than people. '
+      +'Fine if that is deliberate &mdash; just so you know.</div>';
+  } else if(cov<100){
+    w.innerHTML='<div class="warn">#1 to #4 add up to <b>'+cov+'%</b>, so '+(100-cov)+'% of people '
+      +'get no entr&eacute;e at all. If everybody takes one, these four should come to 100.</div>';
+  } else w.innerHTML="";
+}
+
+/* ================= money panel ================= */
+function buildUnitGrid(){
+  const g=document.getElementById("unitGrid"); if(!g) return; g.innerHTML="";
+  Object.keys(UNIT_DEFAULTS).forEach(k=>{
+    const l=el("label","f", RATE_LABEL[k]+" $ each");
+    const i=document.createElement("input");
+    i.type="number"; i.min="0"; i.step="0.05"; i.placeholder="0.00";
+    i.value = state.money.unit[k] || "";
+    i.oninput=()=>{ state.money.unit[k]=Math.max(0,numOr(i.value,0));
+      buildKpis(); render(); persist(); };
+    l.appendChild(i); g.appendChild(l);
+  });
+}
+
+function buildKpis(){
+  const g=document.getElementById("kpiRow"); if(!g) return;
+  const {tot, unpriced} = profitWeek();
+  const live = tot.revenue>0 || tot.cost>0;
+  const cell=(k,v,s2,cls)=>'<div class="kpi"><div class="k">'+k+'</div><div class="v '
+    +(cls||"")+'">'+(live?v:"—")+'</div><div class="s">'+(live?(s2||""):"")+'</div></div>';
+  g.innerHTML =
+    cell("Revenue",   fmtMoney(tot.revenue), tot.heads+" people") +
+    cell("Food cost", fmtMoney(tot.food),    live?fmtPct(tot.foodPct)+" of revenue":"") +
+    cell("Labor + other", fmtMoney(tot.labor+tot.other), "") +
+    cell("Net profit", fmtMoney(tot.net), live?fmtPct(tot.margin)+" margin":"", tot.net<0?"neg":"pos") +
+    cell("Per person", fmtMoney(tot.netPerHead,true),
+         live?"break even "+fmtMoney(tot.perHead,true):"", tot.netPerHead<0?"neg":"pos");
+
+  const w=document.getElementById("moneyWarn"); if(!w) return;
+  const bits=[];
+  if(unpriced.length) bits.push('<div class="warn"><b>'+unpriced.length+' dish'
+    +(unpriced.length===1?" has":"es have")+' no cost per serving</b>, so the food cost above is too low '
+    +'and the profit too high. Set them on the day cards: '+unpriced.join(" &middot; ")+'</div>');
+  if(live && tot.foodPct>40) bits.push('<div class="warn">Food is <b>'+fmtPct(tot.foodPct)
+    +'</b> of revenue. Catering usually runs under 35% &mdash; worth a look at the pricier dishes.</div>');
+  if(live && tot.net<0) bits.push('<div class="warn">This week loses <b>'+fmtMoney(Math.abs(tot.net))
+    +'</b>. You would need <b>'+fmtMoney(tot.perHead,true)+'</b> a head to break even.</div>');
+  w.innerHTML = bits.join("");
+}
+
+function wireMoney(){
+  [["mPrice","price"],["mLabor","labor"],["mOther","other"]].forEach(([id,key])=>{
+    const i=document.getElementById(id); if(!i) return;
+    i.value = state.money[key] || "";
+    i.oninput=()=>{ state.money[key]=Math.max(0,numOr(i.value,0));
+      buildKpis(); render(); persist(); };
+  });
+  buildUnitGrid(); buildKpis();
+}
+
+/* ================= photo library =================
+   Reference shots of what a dish should look like.  These are far too big for
+   localStorage, so they live in IndexedDB — which means, like everything else
+   here, they are per-device and do not sync.  Two stores on purpose: `photos`
+   holds only the small thumbnail so the grid can be drawn from one cheap read,
+   and `blobs` holds the full picture, fetched only when one is opened. */
+const PDB_NAME = "mmt_menugen_photos_v1";   /* namespaced — see the shared Pages origin */
+let PDB = null;
+let PHOTO_INDEX = {};    /* DISH NAME -> photo count, kept in memory so buildGrid stays sync */
+
+function pdbOpen(){
+  if(PDB) return Promise.resolve(PDB);
+  return new Promise((res,rej)=>{
+    let rq;
+    try{ rq = indexedDB.open(PDB_NAME, 1); }catch(e){ return rej(e); }
+    rq.onupgradeneeded = ()=>{
+      const db = rq.result;
+      if(!db.objectStoreNames.contains("photos")){
+        const st = db.createObjectStore("photos", {keyPath:"id", autoIncrement:true});
+        st.createIndex("dish", "dish", {unique:false});
+      }
+      if(!db.objectStoreNames.contains("blobs")) db.createObjectStore("blobs", {keyPath:"id"});
+    };
+    rq.onsuccess = ()=>{ PDB = rq.result; res(PDB); };
+    rq.onerror   = ()=>rej(rq.error || new Error("could not open the photo store"));
+  });
+}
+function pdbTx(stores, mode, fn){
+  return pdbOpen().then(db=>new Promise((res,rej)=>{
+    const tx = db.transaction(stores, mode);
+    let out;
+    tx.oncomplete = ()=>res(out);
+    tx.onerror    = ()=>rej(tx.error);
+    tx.onabort    = ()=>rej(tx.error || new Error("photo write aborted — the device may be out of space"));
+    out = fn(stores.map(n=>tx.objectStore(n)), v=>{ out = v; });
+  }));
+}
+const pdbReq = rq => new Promise((res,rej)=>{ rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); });
+
+function photoList(){                       /* thumbnails only */
+  return pdbOpen().then(db=>pdbReq(db.transaction("photos").objectStore("photos").getAll()))
+    .catch(()=>[]);
+}
+function photoFull(id){
+  return pdbOpen().then(db=>pdbReq(db.transaction("blobs").objectStore("blobs").get(id)))
+    .then(r=>r&&r.blob||null).catch(()=>null);
+}
+function rebuildPhotoIndex(){
+  return photoList().then(rows=>{
+    PHOTO_INDEX = {};
+    rows.forEach(r=>{ PHOTO_INDEX[r.dish] = (PHOTO_INDEX[r.dish]||0)+1; });
+    return rows;
+  });
+}
+const photoCount = name => PHOTO_INDEX[(name||"").trim().toUpperCase()] || 0;
+
+/* ---- shrink before storing: a phone photo is 3-5MB and useless at that size ---- */
+function loadBitmap(file){
+  if(window.createImageBitmap){
+    /* from-image keeps the phone's EXIF rotation instead of landing sideways */
+    return createImageBitmap(file, {imageOrientation:"from-image"}).catch(()=>loadViaImg(file));
+  }
+  return loadViaImg(file);
+}
+function loadViaImg(file){
+  return new Promise((res,rej)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload =()=>{ URL.revokeObjectURL(url); res(img); };
+    img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("that file is not an image")); };
+    img.src=url;
+  });
+}
+function drawTo(src, maxEdge, type, quality){
+  const sw = src.width, sh = src.height;
+  const sc = Math.min(1, maxEdge/Math.max(sw,sh));
+  const w = Math.max(1,Math.round(sw*sc)), h = Math.max(1,Math.round(sh*sc));
+  const c = document.createElement("canvas"); c.width=w; c.height=h;
+  const x = c.getContext("2d");
+  x.imageSmoothingQuality = "high";
+  x.drawImage(src, 0, 0, w, h);
+  return {canvas:c, w, h,
+    blob: ()=>new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("could not encode")), type, quality))};
+}
+function processPhoto(file){
+  return loadBitmap(file).then(src=>{
+    const big = drawTo(src, 1400, "image/jpeg", 0.82);
+    const sml = drawTo(src, 300,  "image/jpeg", 0.72);
+    return big.blob().then(blob=>({
+      blob, w:big.w, h:big.h, thumb: sml.canvas.toDataURL("image/jpeg", 0.72)
+    }));
+  });
+}
+function addPhoto(dishName, file){
+  const dish=(dishName||"").trim().toUpperCase();
+  if(!dish) return Promise.reject(new Error("pick a dish first"));
+  if(!/^image\//.test(file.type)) return Promise.reject(new Error("that file is not an image"));
+  return processPhoto(file).then(p=>
+    pdbTx(["photos","blobs"],"readwrite",([photos,blobs],set)=>{
+      const rq = photos.add({dish, thumb:p.thumb, w:p.w, h:p.h, bytes:p.blob.size, added:Date.now()});
+      rq.onsuccess = ()=>{ blobs.put({id:rq.result, blob:p.blob}); set(rq.result); };
+    })
+  ).then(id=>{ PHOTO_INDEX[dish]=(PHOTO_INDEX[dish]||0)+1; return id; });
+}
+function deletePhoto(id, dish){
+  return pdbTx(["photos","blobs"],"readwrite",([photos,blobs])=>{
+    photos.delete(id); blobs.delete(id);
+  }).then(()=>{
+    const k=(dish||"").trim().toUpperCase();
+    if(PHOTO_INDEX[k]) { PHOTO_INDEX[k]--; if(!PHOTO_INDEX[k]) delete PHOTO_INDEX[k]; }
+  });
+}
+
+/* ---- picking a file ---- */
+function pickImages(multiple){
+  return new Promise(res=>{
+    const f=document.createElement("input");
+    f.type="file"; f.accept="image/*"; if(multiple) f.multiple=true;
+    f.onchange=()=>res([...(f.files||[])]);
+    f.click();
+  });
+}
+function addPhotosFor(name){
+  if(!name){ toast("That slot has no dish in it yet"); return Promise.resolve(); }
+  return pickImages(true).then(files=>{
+    if(!files.length) return;
+    toast(files.length>1 ? "Adding "+files.length+" photos…" : "Adding photo…");
+    return files.reduce((chain,f)=>chain.then(()=>addPhoto(name,f).catch(e=>{
+      toast(e.message||"Could not add that photo"); })), Promise.resolve())
+      .then(()=>{ buildGrid(); buildPhotoPanel(); toast("Photo saved to this device"); });
+  });
+}
+
+/* ---- lightbox ---- */
+let LB = {dish:"", rows:[], i:0, url:null};
+function lbRevoke(){ if(LB.url){ URL.revokeObjectURL(LB.url); LB.url=null; } }
+function openPhotos(name){
+  const dish=(name||"").trim().toUpperCase();
+  if(!dish){ toast("That slot has no dish in it yet"); return; }
+  photoList().then(rows=>{
+    LB.dish=dish; LB.rows=rows.filter(r=>r.dish===dish).sort((a,b)=>a.added-b.added); LB.i=0;
+    document.getElementById("lb").classList.add("on");
+    lbRender();
+  });
+}
+function lbRender(){
+  const nameEl=document.getElementById("lbName"), sub=document.getElementById("lbSub");
+  const stage=document.getElementById("lbStage"), film=document.getElementById("lbFilm");
+  nameEl.textContent = LB.dish || "—";
+  const m = metaFor(LB.dish);
+  sub.textContent = LB.rows.length
+    ? (LB.i+1)+" of "+LB.rows.length + (m.c?"  ·  "+fmtMoney(m.c,true)+" a serving":"")
+    : "No photos yet for this dish";
+  document.getElementById("lbDel").style.display = LB.rows.length ? "" : "none";
+
+  lbRevoke(); stage.innerHTML="";
+  if(!LB.rows.length){
+    stage.innerHTML='<div class="none">Nothing here yet — add a photo of how it should look.</div>';
+  } else {
+    const row=LB.rows[LB.i];
+    const img=document.createElement("img"); img.alt=LB.dish;
+    img.src=row.thumb;                                  /* instant, then swapped for the full one */
+    photoFull(row.id).then(b=>{ if(!b) return; lbRevoke(); LB.url=URL.createObjectURL(b); img.src=LB.url; });
+    stage.appendChild(img);
+  }
+  film.innerHTML="";
+  LB.rows.forEach((r,i)=>{
+    const t=document.createElement("img"); t.src=r.thumb; t.className = i===LB.i?"on":"";
+    t.onclick=()=>{ LB.i=i; lbRender(); };
+    film.appendChild(t);
+  });
+}
+function lbClose(){ lbRevoke(); document.getElementById("lb").classList.remove("on"); }
+
+/* ---- the panel ---- */
+function fmtBytes(n){
+  if(n<1024) return n+" B";
+  if(n<1048576) return (n/1024).toFixed(0)+" KB";
+  if(n<1073741824) return (n/1048576).toFixed(1)+" MB";
+  return (n/1073741824).toFixed(2)+" GB";
+}
+function buildPhotoPanel(){
+  const body=document.getElementById("pBody"); if(!body) return;
+  const q=(document.getElementById("pSearch").value||"").trim().toUpperCase();
+  photoList().then(rows=>{
+    const byDish={};
+    rows.forEach(r=>{ (byDish[r.dish]=byDish[r.dish]||[]).push(r); });
+    let names=Object.keys(byDish).sort();
+    if(q) names=names.filter(n=>n.includes(q));
+
+    if(!rows.length){
+      body.innerHTML='<div class="pempty">No photos yet. Use the <b>📷</b> button on any dish above, '
+        +'or <b>Add photo to a dish</b> — on a phone that opens the camera.</div>';
+    } else if(!names.length){
+      body.innerHTML='<div class="pempty">Nothing matching “'+q+'”.</div>';
+    } else {
+      const g=document.createElement("div"); g.className="photogrid";
+      names.forEach(n=>{
+        const list=byDish[n].sort((a,b)=>a.added-b.added);
+        const card=document.createElement("div"); card.className="pcard";
+        const img=document.createElement("img"); img.src=list[0].thumb; img.alt=n; img.loading="lazy";
+        const nm=document.createElement("div"); nm.className="nm";
+        nm.innerHTML = n + "<small>" + list.length + (list.length===1?" photo":" photos") + "</small>";
+        card.appendChild(img); card.appendChild(nm);
+        card.onclick=()=>openPhotos(n);
+        g.appendChild(card);
+      });
+      body.innerHTML=""; body.appendChild(g);
+    }
+
+    const used = rows.reduce((a,r)=>a+(r.bytes||0),0);
+    const el2=document.getElementById("pStorage");
+    const line = rows.length
+      ? rows.length+" photo"+(rows.length===1?"":"s")+" across "+Object.keys(byDish).length
+        +" dish"+(Object.keys(byDish).length===1?"":"es")+", about "+fmtBytes(used)+" on this device."
+      : "";
+    el2.textContent = line;
+    if(navigator.storage && navigator.storage.estimate){
+      navigator.storage.estimate().then(e=>{
+        if(!e || !e.quota) return;
+        el2.textContent = line + (line?"  ":"") + "Browser allows about "+fmtBytes(e.quota)+" here.";
+      }).catch(()=>{});
+    }
+  });
+}
+
+/* Ask the browser not to evict these.  Without it a routine cache clear can
+   take the whole library, and there is no copy anywhere else. */
+function requestPhotoPersistence(){
+  if(navigator.storage && navigator.storage.persist && navigator.storage.persisted){
+    navigator.storage.persisted().then(ok=>{ if(!ok) navigator.storage.persist().catch(()=>{}); })
+      .catch(()=>{});
+  }
+}
+
+/* ---- export / import ---- */
+function blobToDataURL(b){
+  return new Promise((res,rej)=>{ const r=new FileReader();
+    r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(b); });
+}
+function exportPhotos(){
+  photoList().then(rows=>{
+    if(!rows.length){ toast("No photos to export"); return; }
+    const bytes = rows.reduce((a,r)=>a+(r.bytes||0),0);
+    if(!confirm(rows.length+" photos, about "+fmtBytes(Math.round(bytes*1.37))
+        +" once packed into a file.\n\nThis can take a moment. Carry on?")) return;
+    toast("Packing "+rows.length+" photos…");
+    return rows.reduce((chain,r)=>chain.then(acc=>
+      photoFull(r.id).then(b=> b ? blobToDataURL(b).then(d=>{
+        acc.push({dish:r.dish, w:r.w, h:r.h, added:r.added, data:d}); return acc;
+      }) : acc)
+    ), Promise.resolve([])).then(out=>{
+      const bl=new Blob([JSON.stringify({v:1, photos:out})],{type:"application/json"});
+      const u=URL.createObjectURL(bl), a=document.createElement("a");
+      a.href=u; a.download="menu-photos.json"; a.click();
+      setTimeout(()=>URL.revokeObjectURL(u),4000);
+      toast("Exported "+out.length+" photos");
+    });
+  }).catch(e=>toast(e.message||"Export failed"));
+}
+function dataURLToBlob(d){
+  return fetch(d).then(r=>r.blob());
+}
+function importPhotos(){
+  const f=document.createElement("input"); f.type="file"; f.accept="application/json";
+  f.onchange=()=>{
+    const file=f.files[0]; if(!file) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      let doc; try{ doc=JSON.parse(r.result); }catch(e){ toast("Could not read that file"); return; }
+      const list = doc && doc.photos;
+      if(!Array.isArray(list) || !list.length){ toast("No photos in that file"); return; }
+      toast("Importing "+list.length+" photos…");
+      list.reduce((chain,p)=>chain.then(()=>
+        dataURLToBlob(p.data).then(b=>{
+          const file2=new File([b], "photo.jpg", {type:b.type||"image/jpeg"});
+          return addPhoto(p.dish, file2);
+        }).catch(()=>{})
+      ), Promise.resolve()).then(()=>{
+        rebuildPhotoIndex().then(()=>{ buildGrid(); buildPhotoPanel(); toast("Imported "+list.length+" photos"); });
+      });
+    };
+    r.readAsText(file);
+  };
+  f.click();
+}
+
+/* ---- pick a dish when adding from the panel rather than a card ---- */
+function addPhotoToAnyDish(){
+  const names=new Set();
+  DAYS.forEach(d=>state.days[d].slots.forEach(s=>{ if(s.t) names.add(s.t.trim().toUpperCase()); }));
+  [1,2,3].forEach(i=>{ if(state.sat["m"+i]) names.add(state.sat["m"+i].trim().toUpperCase()); });
+  const listed=[...names].sort();
+  const typed=prompt("Which dish is the photo of?\n\nOn this week's menu:\n\n"
+    + listed.map((n,i)=>(i+1)+". "+n).join("\n")
+    + "\n\nType a number, or type any dish name.");
+  if(typed===null) return;
+  const t=typed.trim(); if(!t) return;
+  const n=Number(t);
+  const dish = (Number.isInteger(n) && n>=1 && n<=listed.length) ? listed[n-1] : t.toUpperCase();
+  addPhotosFor(dish);
+}
+
+function wirePhotos(){
+  document.getElementById("lbClose").onclick=lbClose;
+  document.getElementById("lb").onclick=e=>{ if(e.target.id==="lb") lbClose(); };
+  document.addEventListener("keydown",e=>{
+    if(!document.getElementById("lb").classList.contains("on")) return;
+    if(e.key==="Escape") lbClose();
+    if(e.key==="ArrowRight" && LB.rows.length){ LB.i=(LB.i+1)%LB.rows.length; lbRender(); }
+    if(e.key==="ArrowLeft"  && LB.rows.length){ LB.i=(LB.i-1+LB.rows.length)%LB.rows.length; lbRender(); }
+  });
+  document.getElementById("lbAdd").onclick=()=>{
+    const dish=LB.dish;
+    addPhotosFor(dish).then(()=>photoList()).then(rows=>{
+      LB.rows=rows.filter(r=>r.dish===dish).sort((a,b)=>a.added-b.added);
+      LB.i=Math.max(0,LB.rows.length-1); lbRender();
+    });
+  };
+  document.getElementById("lbDel").onclick=()=>{
+    const row=LB.rows[LB.i]; if(!row) return;
+    if(!confirm("Delete this photo of "+LB.dish+"? It is only on this device, so it cannot be got back.")) return;
+    deletePhoto(row.id, row.dish).then(()=>{
+      LB.rows.splice(LB.i,1); if(LB.i>=LB.rows.length) LB.i=Math.max(0,LB.rows.length-1);
+      lbRender(); buildGrid(); buildPhotoPanel(); toast("Photo deleted");
+    });
+  };
+  const se=document.getElementById("pSearch");
+  if(se) se.oninput=()=>buildPhotoPanel();
+  document.getElementById("pAddAny").onclick=addPhotoToAnyDish;
+  document.getElementById("pExport").onclick=exportPhotos;
+  document.getElementById("pImport").onclick=importPhotos;
+  requestPhotoPersistence();
+}
+
 /* ================= misc ================= */
 let toastT;
 function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("show");
@@ -1803,9 +2941,9 @@ function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.
 function persist(){ save(K.state,state); }
 
 let VIEW="menu";
-const VIEW_CANVAS = {menu:"cv", sheet:"cv2", daily:"cv3"};
-const VIEW_TEXT   = {menu:"__menuText", sheet:"__sheetText", daily:"__dailyText"};
-const VIEW_FILE   = {menu:"Menu ", sheet:"Order Sheet ", daily:"Prep List "};
+const VIEW_CANVAS = {menu:"cv", sheet:"cv2", daily:"cv3", proj:"cv4", profit:"cv5"};
+const VIEW_TEXT   = {menu:"__menuText", sheet:"__sheetText", daily:"__dailyText", proj:"__projText", profit:"__profitText"};
+const VIEW_FILE   = {menu:"Menu ", sheet:"Order Sheet ", daily:"Prep List ", proj:"Production Counts ", profit:"Profit "};
 function setView(v){
   VIEW=v;
   Object.entries(VIEW_CANVAS).forEach(([k,id])=>{
@@ -1836,9 +2974,13 @@ function saveToHistory(){
 function wire(){
   const ws=document.getElementById("weekStart"), dl=document.getElementById("dateLabel");
   ws.value=state.weekStart; dl.value=state.dateLabel;
+  const wkChip=document.getElementById("wkChip");
+  const syncChip=()=>{ if(wkChip) wkChip.textContent = state.dateLabel || ""; };
+  syncChip();
   ws.onchange=()=>{ state.weekStart=ws.value; state.dateLabel=autoLabel(ws.value); dl.value=state.dateLabel;
-    render(); persist(); };
-  dl.oninput=()=>{ state.dateLabel=dl.value.toUpperCase(); dl.value=state.dateLabel; render(); persist(); };
+    syncChip(); render(); persist(); };
+  dl.oninput=()=>{ state.dateLabel=dl.value.toUpperCase(); dl.value=state.dateLabel;
+    syncChip(); render(); persist(); };
 
   const ts=document.getElementById("titleStyle"); ts.value=state.title;
   ts.onchange=()=>{ state.title=ts.value; render(); persist(); };
@@ -1858,7 +3000,23 @@ function wire(){
       day.slots.forEach(s=>{ if(!s.lock) s.t=""; });
     });
     generate(); toast("Week generated");
+    if(window.__closeHdrSheet) window.__closeHdrSheet();
   };
+  const gear=document.getElementById("gear"), sheet=document.getElementById("hdrSheet");
+  const sheetOpen = ()=>sheet.classList.contains("on");
+  const setSheet=(on)=>{ sheet.classList.toggle("on", on); gear.classList.toggle("on", on);
+    gear.setAttribute("aria-expanded", on?"true":"false"); };
+  gear.onclick=(e)=>{ e.stopPropagation(); setSheet(!sheetOpen()); };
+  /* tapping the page, or Escape, closes it — a settings sheet you cannot dismiss
+     is worse than the bar it replaced */
+  document.addEventListener("click",(e)=>{
+    if(!sheetOpen()) return;
+    if(sheet.contains(e.target) || e.target===gear) return;
+    setSheet(false);
+  });
+  document.addEventListener("keydown",(e)=>{ if(e.key==="Escape" && sheetOpen()) setSheet(false); });
+  window.__closeHdrSheet = ()=>setSheet(false);
+
   document.querySelectorAll("#viewSeg button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
   document.getElementById("dl").onclick=downloadPNG;
   document.getElementById("dl2").onclick=downloadPNG;
@@ -1876,13 +3034,37 @@ function wire(){
       render(); persist(); };
     de.oninput=()=>{ state.sat["d"+i]=de.value; render(); persist(); };
     ag.oninput=()=>{ state.sat["a"+i]=ag.value.toUpperCase(); ag.value=state.sat["a"+i]; render(); persist(); };
+    const cs=document.getElementById("satc"+i);
+    const syncSatCost=()=>{ const c0=metaFor(state.sat["m"+i]).c; cs.value = c0 ? c0 : ""; };
+    syncSatCost();
+    cs.oninput=()=>{ setMeta(state.sat["m"+i], {c: Math.max(0,numOr(cs.value,0))});
+      buildKpis(); render(); };
+    nm.addEventListener("input", syncSatCost);
+    const pb=document.getElementById("satPhoto"+i);
+    if(pb) pb.onclick=()=>openPhotos(state.sat["m"+i]);
   });
   document.getElementById("legend").innerHTML =
     "<span>Allergen codes you can use:</span>" +
     ["GLUTEN","DAIRY","EGG","SOY","FISH","SHELLFISH","TREE NUTS","PEANUTS","SESAME","PORK","NONE"]
       .map(t=>"<span>"+t+"</span>").join("");
   const sc=document.getElementById("satClosed"); sc.checked=state.sat.closed;
-  sc.onchange=()=>{ state.sat.closed=sc.checked; render(); persist(); };
+  sc.onchange=()=>{ state.sat.closed=sc.checked; buildHeadGrid(); render(); persist(); };
+
+  const hAll=document.getElementById("headsAll");
+  document.getElementById("headsApply").onclick=()=>{
+    const n=Math.max(0,Math.floor(numOr(hAll.value,0)));
+    if(!n){ toast("Put a number in first"); return; }
+    PROJ_DAYS.forEach(d=>{ if(!isClosed(d)) state.heads[d]=n; });
+    buildHeadGrid(); render(); persist(); toast(n+" people set for every open day");
+  };
+  document.getElementById("headsClear").onclick=()=>{
+    PROJ_DAYS.forEach(d=>state.heads[d]=0); hAll.value="";
+    buildHeadGrid(); render(); persist(); toast("Headcounts cleared");
+  };
+  document.getElementById("rateReset").onclick=()=>{
+    state.rates=Object.assign({},RATE_DEFAULTS);
+    buildRateGrid(); render(); persist(); toast("Percentages back to defaults");
+  };
 
   document.getElementById("exportLib").onclick=()=>{
     const bl=new Blob([JSON.stringify(LIB,null,2)],{type:"application/json"});
@@ -1908,7 +3090,12 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildLib(); buildHist(); render();
+  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); buildLib(); buildHist(); render();
+  wirePhotos();
+  /* the photo count on each card needs the index, which only IndexedDB can
+     answer — so the cards are drawn once now and refreshed when it lands */
+  rebuildPhotoIndex().then(()=>{ buildGrid(); buildPhotoPanel(); })
+                     .catch(()=>{ buildPhotoPanel(); });
   const empty = DAYS.every(d=>state.days[d].slots.every(s=>!s.t));
   if(empty) generate();
 }
