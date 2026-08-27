@@ -2282,10 +2282,20 @@ function buildLib(){
 function buildHist(){
   const b=document.getElementById("histBody");
   if(!HIST.length){ b.innerHTML='<p class="note" style="padding:14px 0">No saved weeks yet.</p>'; return; }
-  let h='<table><tr><th>Week</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th></th></tr>';
+  const withRun = HIST.filter(w=>w.run && w.run.result).length;
+  let h='<table><tr><th>Week</th><th>Served</th><th>Revenue</th><th>Profit</th>'
+      + '<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th></th></tr>';
   HIST.slice().reverse().forEach((w,ri)=>{
     const i=HIST.length-1-ri;
+    const r = w.run && w.run.result;
     h+='<tr><td class="wk">'+(w.label||w.week)+"</td>";
+    if(r){
+      h+='<td class="wk">'+(r.people||0)+"</td>"
+       + '<td class="wk">'+fmtMoney(r.revenue||0)+"</td>"
+       + '<td class="wk" style="color:'+((r.net||0)<0?"#B5191C":"#2E7D46")+'">'+fmtMoney(r.net||0)+"</td>";
+    } else {
+      h+='<td colspan="3" style="color:#a0a0a9;font-size:11px">saved before the app kept numbers</td>';
+    }
     DAYS.forEach(d=>{ const a=w.days[d]||[]; h+="<td>"+a.filter(Boolean).join("<br>")+"</td>"; });
     h+='<td><button data-i="'+i+'" class="delhist" style="border:0;background:none;color:#c33">×</button></td></tr>';
   });
@@ -2329,37 +2339,72 @@ function actualDay(dayKey){
           dishes:proj.dishes, special:!!proj.special};
 }
 
-/* Across every day that has been recorded: what share of the room actually
-   took each numbered item.  This is the number the planning percentages are
-   guessing at. */
-function actualRates(){
-  let people = 0; const taken = {};
-  PROJ_ROWS.forEach(([k])=>taken[k]=0);
-  let days = 0;
+/* Reduce one week — live or pulled out of history — to people served and what
+   they took.  A stored week carries its own headcounts and percentages, so the
+   portions it was working from are recomputed from those, never from today's. */
+function takenFromRun(run){
+  if(!run || !run.actual) return null;
+  const mode = run.actual.mode === "taken" ? "taken" : "left";
+  let people = 0, days = 0, any = false;
+  const taken = {}; PROJ_ROWS.forEach(([k])=>taken[k]=0);
   PROJ_DAYS.forEach(d=>{
-    const a = actualDay(d);
-    if(a.closed || a.special) return;
-    const p = a.people;
-    if(p==null || !p) return;
-    const rows = a.rows.filter(r=>r.recorded);
-    if(!rows.length) return;
-    days++; people += p;
-    rows.forEach(r=>{ taken[r.k] += r.taken; });
+    const rec = run.actual[d]; if(!rec) return;
+    const p = rec.people;
+    if(p == null || !(p > 0)) return;
+    const made = projectDay((run.heads||{})[d] || 0, run.rates,
+                            d === "sat" ? {mergeE2:true} : undefined).counts;
+    let recorded = false;
+    PROJ_ROWS.forEach(([k])=>{
+      if(d === "sat" && k === "e2") return;
+      const v = rec.n ? rec.n[k] : null;
+      if(v == null || !(v >= 0)) return;
+      const m = made[k] || 0;
+      const left = mode === "left" ? Math.min(v, m) : Math.max(0, m - v);
+      taken[k] += m - left;
+      recorded = true;
+    });
+    if(recorded){ people += p; days++; any = true; }
+  });
+  return (any && people) ? {people, days, taken} : null;
+}
+
+/* The live week is just another run.  Averaging across every stored week is the
+   whole reason for keeping them — one week is a sample of one. */
+function liveRun(){ return {actual:state.actual, heads:state.heads, rates:state.rates}; }
+
+function actualRates(includeHistory){
+  const runs = [liveRun()];
+  if(includeHistory !== false) HIST.forEach(h=>{ if(h.run) runs.push(h.run); });
+  let people = 0, days = 0, weeks = 0;
+  const taken = {}; PROJ_ROWS.forEach(([k])=>taken[k]=0);
+  runs.forEach(r=>{
+    const t = takenFromRun(r); if(!t) return;
+    weeks++; people += t.people; days += t.days;
+    PROJ_ROWS.forEach(([k])=>{ taken[k] += t.taken[k]; });
   });
   if(!people) return null;
   const pct = {};
   PROJ_ROWS.forEach(([k])=>{ pct[k] = taken[k]/people*100; });
-  return {people, days, taken, pct};
+  return {people, days, weeks, taken, pct};
 }
 
 /* Turn what actually happened into the planning percentages.  The four
    numbered slots are normalised to 100 because everyone takes exactly one. */
 function ratesFromActuals(){
-  const a = actualRates(); if(!a) return null;
+  const a = actualRates(true); if(!a) return null;
   const out = {};
   const ent = ["e1","e2","veg","salad"];
   const sum = ent.reduce((n,k)=>n + a.pct[k], 0);
-  if(sum > 0) ent.forEach(k=>{ out[k] = Math.round(a.pct[k]/sum*1000)/10; });
+  if(sum > 0){
+    /* Round three, then let the fourth take the remainder — rounding each on its
+       own lands on 100.1 and trips the "more entrees than people" warning the
+       moment you press the button. */
+    let used = 0;
+    ent.slice(0,-1).forEach(k=>{
+      out[k] = Math.round(a.pct[k]/sum*1000)/10; used += out[k];
+    });
+    out[ent[ent.length-1]] = Math.round((100 - used)*10)/10;
+  }
   ADDON_KEYS.forEach(k=>{ out[k] = Math.round(a.pct[k]*10)/10; });
   return out;
 }
@@ -2821,9 +2866,13 @@ function buildActualWeek(){
     return RATE_LABEL[k].toUpperCase()+" "+(Math.round(a.pct[k]*10)/10)+"% ("+extra+" more than people)";
   });
 
+  const spanning = a.weeks>1
+    ? a.weeks+" weeks, "+a.days+" day"+(a.days===1?"":"s")+", "+a.people+" people"
+    : a.days+" day"+(a.days===1?"":"s")+", "+a.people+" people (this week only)";
   w.innerHTML =
-    '<p class="subhead">What people actually took &mdash; '+a.days+' day'+(a.days===1?"":"s")
-      +', '+a.people+' people</p>'
+    '<p class="subhead">What people actually took &mdash; '+spanning+'</p>'
+    + (a.weeks>1 ? '' : '<p class="note" style="margin:4px 0 0">One week is a sample of one. '
+        + 'Save each finished week to history and this averages across all of them.</p>')
     + '<div class="arows">'
     + '<div class="arow head"><div>Item</div><div style="text-align:right">Planned</div>'
       + '<div style="text-align:right">Actual</div><div style="text-align:right">Gap</div></div>'
@@ -2838,8 +2887,11 @@ function buildActualWeek(){
   if(b) b.onclick=()=>{
     const next = ratesFromActuals(); if(!next){ toast("Nothing recorded yet"); return; }
     const ent=["e1","e2","veg","salad"].map(k=>RATE_LABEL[k]+" "+next[k]+"%").join(", ");
+    const src = actualRates(true);
     if(!confirm("Replace your planning percentages with what actually happened?\n\n"
-      + ent + "\n\nThe extras move to their recorded rates too. You can always change them by hand.")) return;
+      + ent + "\n\nBased on "+src.weeks+" week"+(src.weeks===1?"":"s")+", "
+      + src.people+" people served.\n"
+      + "The extras move to their recorded rates too. You can always change them by hand.")) return;
     Object.assign(state.rates, next);
     buildRateGrid(); buildActualWeek(); render(); persist();
     toast("Percentages updated from what actually got served");
@@ -3446,13 +3498,48 @@ function downloadPNG(){
     setTimeout(()=>URL.revokeObjectURL(u),2000); toast("Saved "+name);
   },"image/png");
 }
-function saveToHistory(){
-  const rec={week:state.weekStart,label:state.dateLabel,days:{}};
+/* A saved week used to be dish names and nothing else, so every headcount,
+   leftover count and profit figure was destroyed by the following week.  The
+   run block below is a frozen snapshot: costs live in META and get edited over
+   time, and last March's profit must not silently change because a dish was
+   repriced in August. */
+function weekSnapshot(){
+  const {tot} = profitWeek();
+  return {
+    heads:  JSON.parse(JSON.stringify(state.heads)),
+    rates:  JSON.parse(JSON.stringify(state.rates)),
+    money:  JSON.parse(JSON.stringify(moneyNow())),
+    actual: JSON.parse(JSON.stringify(state.actual)),
+    result: {people:tot.heads, revenue:tot.revenue, food:tot.food, labor:tot.labor,
+             other:tot.other, cost:tot.cost, net:tot.net,
+             foodPct:tot.foodPct, margin:tot.margin},
+    savedAt: new Date().toISOString()
+  };
+}
+
+function saveToHistory(weekOverride, labelOverride){
+  const week  = weekOverride  || state.weekStart;
+  const label = labelOverride || state.dateLabel;
+  const rec={week, label, days:{}};
   DAYS.forEach(d=>rec.days[d]=state.days[d].slots.map(s=>s.t));
+  rec.run = weekSnapshot();
   const i=HIST.findIndex(h=>h.week===rec.week);
   if(i>=0) HIST[i]=rec; else HIST.push(rec);
   HIST.sort((a,b)=>a.week<b.week?-1:1);
-  save(K.hist,HIST); buildHist(); toast("Week saved to history");
+  save(K.hist,HIST); buildHist();
+  if(typeof buildActualWeek==="function") buildActualWeek();
+  toast("Week saved to history");
+  return rec;
+}
+
+/* Wipe only what belongs to the week just finished.  Headcounts stay — the
+   contract is the same 1600 every week — but the leftovers are last week's. */
+function clearWeekActuals(){
+  PROJ_DAYS.forEach(d=>{ state.actual[d]=blankActualDay(); });
+  persist();
+  if(typeof buildActualTabs==="function"){ buildActualTabs(); buildActualBody(); }
+  if(typeof buildKpis==="function") buildKpis();
+  render();
 }
 
 /* ================= wiring ================= */
@@ -3462,7 +3549,20 @@ function wire(){
   const wkChip=document.getElementById("wkChip");
   const syncChip=()=>{ if(wkChip) wkChip.textContent = state.dateLabel || ""; };
   syncChip();
-  ws.onchange=()=>{ state.weekStart=ws.value; state.dateLabel=autoLabel(ws.value); dl.value=state.dateLabel;
+  ws.onchange=()=>{
+    const prevWeek=state.weekStart, prevLabel=state.dateLabel;
+    /* Moving to a different week used to leave last week's leftovers and
+       headcount sitting there, silently applying to the new one. */
+    if(ws.value!==prevWeek && PROJ_DAYS.some(d=>anyActuals(d))){
+      const served = PROJ_DAYS.filter(d=>actualPeople(d)!=null).length;
+      const ok = confirm(
+        "You have what actually got served recorded for "+(prevLabel||prevWeek)
+        + (served ? "  ("+served+" day"+(served===1?"":"s")+")" : "") + ".\n\n"
+        + "OK      — save that week to history and start the new one empty\n"
+        + "Cancel  — leave those numbers on screen (they will count as the new week's)");
+      if(ok){ saveToHistory(prevWeek, prevLabel); clearWeekActuals(); }
+    }
+    state.weekStart=ws.value; state.dateLabel=autoLabel(ws.value); dl.value=state.dateLabel;
     syncChip(); render(); persist(); };
   dl.oninput=()=>{ state.dateLabel=dl.value.toUpperCase(); dl.value=state.dateLabel;
     syncChip(); render(); persist(); };
