@@ -142,6 +142,28 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .headgrid input,.rategrid input{min-width:0;width:100%;text-align:center;font-weight:700}
 .subhead{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:16px 0 0}
 .subhead:first-child{margin-top:12px}
+/* chart colours: blue is the single series, critical red marks a loss or a
+   food cost over target.  Validated against the white panel surface —
+   all six checks pass, worst adjacent pair dE 23.8 under protanopia. */
+.viz{--series-1:#2a78d6;--bad:#d03b3b;--ink:#0b0b0b;--ink2:#52514e;--grid:#e7e7ea}
+.viz .card{border:1px solid var(--line);border-radius:12px;padding:14px 14px 8px;margin-top:14px;background:#fff}
+.viz h4{margin:0;font-size:12.5px;font-weight:800;letter-spacing:-.1px}
+.viz .sub{font-size:11px;color:var(--muted);font-weight:600;margin-top:2px}
+/* A viewBox scales the text down with the chart: at 271px wide the labels
+   measured 4px. Never scale up past 1:1, never below ~600px — scroll instead. */
+.viz .plot{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px}
+.viz svg{display:block;width:100%;min-width:600px;max-width:720px;height:auto;overflow:visible}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+@media(max-width:820px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.tile .k{font-size:9.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-size:23px;font-weight:800;margin-top:3px;letter-spacing:-.6px}
+.tile .s{font-size:10.5px;font-weight:700;color:var(--muted)}
+.tile .v.neg{color:#d03b3b}
+.ttable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.ttable th,.ttable td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.ttable th:first-child,.ttable td:first-child{text-align:left}
+.ttable th{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 .daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .daytabs button{padding:6px 13px;font-size:12px;font-weight:800;letter-spacing:.6px}
 .daytabs button.on{background:var(--red);color:#fff;border-color:var(--red)}
@@ -310,6 +332,11 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
       <div id="aBody"></div>
       <div id="aWeek"></div>
     </div>
+  </details>
+
+  <details class="panel" id="trendPanel">
+    <summary>Trend — how the weeks compare</summary>
+    <div class="body viz" id="trendBody"></div>
   </details>
 
   <details class="panel" id="backupPanel">
@@ -2300,7 +2327,7 @@ function buildHist(){
     h+='<td><button data-i="'+i+'" class="delhist" style="border:0;background:none;color:#c33">×</button></td></tr>';
   });
   b.innerHTML=h+"</table>";
-  b.querySelectorAll(".delhist").forEach(x=>x.onclick=()=>{ HIST.splice(+x.dataset.i,1); save(K.hist,HIST); buildHist(); });
+  b.querySelectorAll(".delhist").forEach(x=>x.onclick=()=>{ HIST.splice(+x.dataset.i,1); save(K.hist,HIST); buildHist(); buildTrend(); });
 }
 
 /* ================= what actually got served =================
@@ -2733,6 +2760,147 @@ function rateWarning(){
     w.innerHTML='<div class="warn">#1 to #4 add up to <b>'+cov+'%</b>, so '+(100-cov)+'% of people '
       +'get no entr&eacute;e at all. If everybody takes one, these four should come to 100.</div>';
   } else w.innerHTML="";
+}
+
+/* ================= trend =================
+   Two single-series charts rather than one with two scales: profit is dollars
+   and food cost is a percentage, and putting both on one axis is the classic
+   way to make a chart lie. */
+const TREND_MAX = 12;
+
+function trendWeeks(){
+  return HIST.filter(h=>h.run && h.run.result && h.run.result.people>0)
+             .slice(-TREND_MAX)
+             .map(h=>({label:(h.label||h.week), week:h.week, r:h.run.result}));
+}
+function shortMoney(n){
+  const a=Math.abs(n);
+  if(a>=1000000) return (n<0?"-$":"$")+(a/1000000).toFixed(a>=10000000?0:1)+"m";
+  if(a>=1000)    return (n<0?"-$":"$")+(a/1000).toFixed(a>=10000?0:1)+"k";
+  return fmtMoney(n);
+}
+const esc = t => String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* One bar chart.  vals may go negative (a losing week), so the baseline sits
+   wherever zero falls rather than always at the bottom. */
+function barChart(rows, opt){
+  const W=720, H=opt.h||190, L=8, R=8, T=opt.T||18, B=30;
+  const plotW=W-L-R, plotH=H-T-B;
+  const vals=rows.map(r=>r.v);
+  let max=Math.max(0,...vals), min=Math.min(0,...vals);
+  if(max===min) max=min+1;
+  const pad=(max-min)*0.12; max+=pad; if(min<0) min-=pad;
+  const y = v => T + plotH - ((v-min)/(max-min))*plotH;
+  const zeroY = y(0);
+  const n=rows.length;
+  const slot=plotW/n, bw=Math.max(6, Math.min(64, slot-10));   /* >=2px gap between fills */
+
+  let g='';
+  /* recessive baseline */
+  g+='<line x1="'+L+'" y1="'+zeroY.toFixed(1)+'" x2="'+(W-R)+'" y2="'+zeroY.toFixed(1)
+    +'" stroke="var(--grid)" stroke-width="1"/>';
+  if(opt.ref!=null){
+    /* The line carries no text of its own: any label sitting on it collided with
+       the value label of whichever bar ended up nearest the target.  The
+       subtitle names it instead, which cannot collide with anything. */
+    const ry=y(opt.ref);
+    g+='<line x1="'+L+'" y1="'+ry.toFixed(1)+'" x2="'+(W-R)+'" y2="'+ry.toFixed(1)
+      +'" stroke="var(--ink2)" stroke-width="1" stroke-dasharray="4 4" opacity="0.55"/>';
+  }
+  rows.forEach((r,i)=>{
+    const cx=L+slot*i+slot/2, x=cx-bw/2;
+    const top=Math.min(y(r.v), zeroY), bot=Math.max(y(r.v), zeroY);
+    const h=Math.max(1, bot-top);
+    const col = r.bad ? "var(--bad)" : "var(--series-1)";
+    const rad = Math.min(4, bw/2, h);          /* 4px rounded data-end */
+    g+='<g><title>'+esc(r.title||r.label)+'</title>'
+      +'<rect x="'+x.toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)
+      +'" rx="'+rad.toFixed(1)+'" fill="'+col+'"/></g>';
+    /* direct label — few enough weeks that every bar can carry its number */
+    const above = r.v>=0;
+    g+='<text x="'+cx.toFixed(1)+'" y="'+(above? (top-6) : (bot+13)).toFixed(1)+'" text-anchor="middle" '
+      +'font-size="12" font-weight="800" fill="var(--ink)">'+esc(r.lab)+'</text>';
+    g+='<text x="'+cx.toFixed(1)+'" y="'+(H-9)+'" text-anchor="middle" font-size="11" '
+      +'font-weight="700" fill="var(--ink2)">'+esc(r.x)+'</text>';
+  });
+  return '<div class="plot"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'
+    +esc(opt.aria||"")+'">'+g+'</svg></div>';
+}
+
+function buildTrend(){
+  const b=document.getElementById("trendBody"); if(!b) return;
+  const weeks=trendWeeks();
+  const total=HIST.filter(h=>h.run && h.run.result && h.run.result.people>0).length;
+
+  if(!weeks.length){
+    b.innerHTML='<div class="pempty" style="margin-top:12px">Nothing to compare yet. '
+      + 'Finish a week, hit <b>Save this week to history</b>, and each saved week shows up here.</div>';
+    return;
+  }
+
+  const sum=(f)=>weeks.reduce((n,w)=>n+(w.r[f]||0),0);
+  const revenue=sum("revenue"), net=sum("net"), food=sum("food"), people=sum("people");
+  const margin = revenue>0 ? net/revenue*100 : 0;
+  const foodPct = revenue>0 ? food/revenue*100 : 0;
+
+  /* is it heading the right way?  first half vs second half, not last-vs-previous,
+     which is mostly noise on weekly figures */
+  let dir="";
+  if(weeks.length>=4){
+    const h=Math.floor(weeks.length/2);
+    const a=weeks.slice(0,h), z=weeks.slice(weeks.length-h);
+    const am=a.reduce((n,w)=>n+w.r.net,0)/a.length, zm=z.reduce((n,w)=>n+w.r.net,0)/z.length;
+    const d=zm-am;
+    dir = Math.abs(d) < Math.abs(am)*0.02 ? "holding steady"
+        : (d>0 ? "up "+shortMoney(d)+" a week on the first half"
+               : "down "+shortMoney(Math.abs(d))+" a week on the first half");
+  }
+
+  const tile=(k,v,s2,neg)=>'<div class="tile"><div class="k">'+k+'</div><div class="v'
+    +(neg?" neg":"")+'">'+v+'</div><div class="s">'+(s2||"")+'</div></div>';
+
+  const profitRows=weeks.map(w=>({
+    v:w.r.net, bad:w.r.net<0, lab:shortMoney(w.r.net), x:w.label.replace(/\s*-\s*/,"–").split("–")[0].trim(),
+    title:w.label+"  ·  "+w.r.people+" served  ·  revenue "+fmtMoney(w.r.revenue)
+      +"  ·  cost "+fmtMoney(w.r.cost)+"  ·  profit "+fmtMoney(w.r.net)
+  }));
+  const foodRows=weeks.map(w=>{
+    const pc = w.r.revenue>0 ? w.r.food/w.r.revenue*100 : 0;
+    return {v:pc, bad:pc>35, lab:(Math.round(pc*10)/10)+"%",
+            x:w.label.replace(/\s*-\s*/,"–").split("–")[0].trim(),
+            title:w.label+"  ·  food "+fmtMoney(w.r.food)+" of "+fmtMoney(w.r.revenue)
+              +" revenue  ·  "+(Math.round(pc*10)/10)+"%"};
+  });
+
+  b.innerHTML =
+    '<p class="note" style="margin:12px 0 0">'+total+' saved week'+(total===1?"":"s")
+      + (total>TREND_MAX ? ' — showing the most recent '+TREND_MAX : '')
+      + (dir ? '. Profit is <b>'+dir+'</b>.' : '.') + '</p>'
+    + '<div class="tiles">'
+      + tile("Weeks", String(weeks.length), weeks.length===1?"one week only":"compared here")
+      + tile("People served", people.toLocaleString(), "across those weeks")
+      + tile("Revenue", shortMoney(revenue), "total")
+      + tile("Profit", shortMoney(net), fmtPct(margin)+" margin", net<0)
+      + tile("Food cost", fmtPct(foodPct), "of revenue")
+    + '</div>'
+    + '<div class="card"><h4>Profit by week</h4>'
+      + '<div class="sub">A red bar is a week that lost money.</div>'
+      + barChart(profitRows, {aria:"Profit for each saved week", h:200}) + '</div>'
+    + '<div class="card"><h4>Food cost as a share of revenue</h4>'
+      + '<div class="sub">The dashed line is 35%, the usual catering target. Bars over it are red.</div>'
+      + barChart(foodRows, {aria:"Food cost percentage for each saved week", ref:35, h:200}) + '</div>'
+    + '<div class="card"><h4>The same thing as numbers</h4>'
+      + '<table class="ttable"><tr><th>Week</th><th>Served</th><th>Revenue</th>'
+      + '<th>Food</th><th>Food %</th><th>Profit</th><th>Margin</th></tr>'
+      + weeks.slice().reverse().map(w=>{
+          const pc=w.r.revenue>0? w.r.food/w.r.revenue*100 : 0;
+          const mg=w.r.revenue>0? w.r.net/w.r.revenue*100 : 0;
+          return '<tr><td>'+esc(w.label)+'</td><td>'+w.r.people+'</td><td>'+fmtMoney(w.r.revenue)
+            +'</td><td>'+fmtMoney(w.r.food)+'</td><td>'+fmtPct(pc)+'</td>'
+            +'<td style="color:'+(w.r.net<0?"#d03b3b":"#0b0b0b")+';font-weight:700">'+fmtMoney(w.r.net)
+            +'</td><td>'+fmtPct(mg)+'</td></tr>';
+        }).join("")
+      + '</table></div>';
 }
 
 /* ================= actuals panel ================= */
@@ -3528,6 +3696,7 @@ function saveToHistory(weekOverride, labelOverride){
   HIST.sort((a,b)=>a.week<b.week?-1:1);
   save(K.hist,HIST); buildHist();
   if(typeof buildActualWeek==="function") buildActualWeek();
+  if(typeof buildTrend==="function") buildTrend();
   toast("Week saved to history");
   return rec;
 }
@@ -3675,7 +3844,7 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildLib(); buildHist(); wireBackup(); render();
+  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildLib(); buildHist(); wireBackup(); render();
   wirePhotos();
   /* the photo count on each card needs the index, which only IndexedDB can
      answer — so the cards are drawn once now and refreshed when it lands */
