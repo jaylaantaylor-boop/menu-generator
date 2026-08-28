@@ -24,10 +24,15 @@ header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;t
 .tbar{display:flex;align-items:center;gap:8px;padding:9px 12px}
 .tbar h1{font-size:14px;margin:0;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
 .tbar h1 span{color:var(--red)}
+/* [hidden] only works while nothing else sets `display`. This rule sets
+   display:flex, which beat it — the bar showed permanently and Hide was inert.
+   Any element given a display here needs its own [hidden] rule. */
+.savealert[hidden]{display:none}
 .savealert{position:fixed;left:0;right:0;top:0;z-index:120;background:#a12a22;color:#fff;
   padding:11px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
   font-size:13px;font-weight:700;box-shadow:0 2px 12px rgba(0,0,0,.28)}
 .savealert b{font-weight:800}
+body.hasalert{padding-top:var(--alerth,150px)}
 .savealert .msg{flex:1;min-width:220px;font-weight:600;line-height:1.4}
 .savealert button{background:#fff;color:#a12a22;border:0;font-weight:800;padding:7px 13px;border-radius:7px}
 .savealert button.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.55)}
@@ -1471,7 +1476,16 @@ let SAVE_OK = true;
 function saveAlarm(failed){
   SAVE_OK = !failed;
   const el = document.getElementById("storageAlert");
-  if(el && !window.__alertDismissed) el.hidden = !failed;
+  if(!el || window.__alertDismissed) return;
+  el.hidden = !failed;
+  showAlertSpace(failed);
+}
+/* The bar is fixed, so it would otherwise sit on top of the toolbar. */
+function showAlertSpace(on){
+  const el = document.getElementById("storageAlert");
+  document.body.classList.toggle("hasalert", !!on);
+  if(on && el) document.documentElement.style.setProperty("--alerth", el.offsetHeight+"px");
+  else document.documentElement.style.removeProperty("--alerth");
 }
 const save = (k,v)=>{
   try{
@@ -4643,7 +4657,7 @@ function wireSaveAlert(){
   const b=document.getElementById("alertBackup"), h=document.getElementById("alertHide");
   if(b) b.onclick=()=>doBackup();
   if(h) h.onclick=()=>{ window.__alertDismissed=true;
-    document.getElementById("storageAlert").hidden=true; };
+    document.getElementById("storageAlert").hidden=true; showAlertSpace(false); };
 }
 function wireOfflineChip(){
   const chip=document.getElementById("offChip"); if(!chip) return;
