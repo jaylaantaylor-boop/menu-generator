@@ -262,6 +262,15 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .arow .nm small{display:block;font-weight:600;color:var(--muted);font-size:10px;letter-spacing:.3px}
 .arow .made{font-size:13px;font-weight:700;text-align:right;color:var(--muted)}
 .arow input{width:100%;min-width:0;text-align:right;font-weight:700;padding:5px 7px;font-size:13px}
+/* The count mode is one switch for the whole week, so the meaning of every box
+   below depends on something set far away and easily forgotten. Say it again
+   right next to the boxes. */
+.modeline{margin-top:14px;font-size:12.5px;font-weight:700;background:#eef3ff;color:#2b53a8;
+  border:1px solid #cfdcf7;border-radius:8px;padding:8px 11px}
+.arownote{background:#fff6e5;border-top:1px solid #ecd9a8;color:#7a5a12;font-size:11.5px;
+  font-weight:600;padding:7px 10px;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.arownote b{font-weight:800}
+.arownote button{padding:3px 9px;font-size:11px;font-weight:700;white-space:nowrap}
 .arow .out{font-size:11px;font-weight:800;text-align:right}
 .arow .out .ok{color:#2E7D46}.arow .out .short{color:var(--red)}.arow .out .none{color:#c9c9d1}
 .arow .out .near{color:#C8901A}.arow .out .far{color:var(--red)}
@@ -4115,6 +4124,11 @@ function buildActualTabs(){
 /* The whole panel, in the order it reads. */
 function buildActualPanel(){ buildActualWeekPicker(); buildActualTabs(); buildActualBody(); }
 
+/* How little "taken" has to look like before an entry is called backwards.
+   Kept tight on purpose: a genuinely bad day can leave half a tray, but almost
+   nothing being taken is nearly always the other number typed by mistake. */
+const BACKWARDS_AT = 0.25;
+
 function buildActualBody(){
   const body=document.getElementById("aBody"); if(!body) return;
   body.innerHTML="";
@@ -4159,6 +4173,10 @@ function buildActualBody(){
   }
 
   const leftMode = src.actual.mode!=="taken";
+  wrap2.appendChild(el("div","modeline",
+    'For each line below, type what was <b>'
+    + (leftMode ? "LEFT OVER at the end" : "TAKEN during service")
+    + '</b>.'));
   const rows=el("div","arows");
   const head=el("div","arow head");
   head.innerHTML='<div>Item</div><div style="text-align:right">Made</div>'
@@ -4178,7 +4196,8 @@ function buildActualBody(){
 
     const iw=el("div");
     const i=document.createElement("input");
-    i.type="number"; i.min="0"; i.max=String(Math.max(r.made,99999)); i.placeholder="—";
+    i.type="number"; i.min="0"; i.placeholder = leftMode ? "left" : "went out";
+    if(r.made > 0) i.max = String(r.made);
     const cur = rec.n[r.k];
     i.value = (cur==null) ? "" : cur;
     i.oninput=()=>{ const v=i.value.trim();
@@ -4194,6 +4213,48 @@ function buildActualBody(){
     else out.innerHTML = r.left + (r.ranOut ? ' <span class="short">RAN OUT</span>' : '');
     row.appendChild(out);
     rows.appendChild(row);
+
+    /* Typing a "went out" number into a "left over" box is silently accepted and
+       inverts the take rate.  The tell is that it implies almost nothing was
+       taken, which on a no-seconds contract barely happens — so flag it and
+       offer the other reading rather than guessing. */
+    const typed = rec.n[r.k];
+    if(typed != null && typed >= 0 && r.made > 0){
+      let note = null;
+      if(typed > r.made){
+        note = {msg:"You typed <b>"+typed+"</b> but only <b>"+r.made+"</b> were made, "
+                  + "so it is being counted as <b>"+r.made+"</b>.", fix:null};
+      } else {
+        const takenNow = leftMode ? (r.made - typed) : typed;
+        if(takenNow / r.made < BACKWARDS_AT){
+          note = {
+            msg: leftMode
+              ? "That reads as <b>"+typed+"</b> of <b>"+r.made+"</b> coming back &mdash; only <b>"
+                + takenNow+"</b> taken."
+              : "That reads as only <b>"+typed+"</b> of <b>"+r.made+"</b> going out.",
+            fix: r.made - typed,
+            fixLabel: leftMode ? "I meant "+typed+" was taken" : "I meant "+typed+" came back"
+          };
+        }
+      }
+      if(note){
+        const nd=el("div","arownote");
+        nd.appendChild(el("span",null,"&#9888; "+note.msg));
+        if(note.fix != null){
+          const b=document.createElement("button");
+          b.textContent = note.fixLabel;
+          b.onclick=()=>{
+            rec.n[r.k] = note.fix;
+            actualPersist(src);
+            buildActualWeekPicker(); buildActualTabs(); buildActualBody(); buildActualWeek();
+            if(src.live){ buildKpis(); buildDishes(); render(); }
+            toast("Changed to "+note.fix);
+          };
+          nd.appendChild(b);
+        }
+        rows.appendChild(nd);
+      }
+    }
   });
   wrap2.appendChild(rows);
 
