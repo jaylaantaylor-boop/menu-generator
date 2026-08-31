@@ -162,6 +162,23 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .rategrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
 @media(max-width:900px){.headgrid{grid-template-columns:repeat(3,1fr)}.rategrid{grid-template-columns:repeat(2,1fr)}}
 .headgrid input,.rategrid input{min-width:0;width:100%;text-align:center;font-weight:700}
+.rategrid input:disabled{background:#f4f4f6;color:#9a9aa3}
+/* Whose percentages the panel is showing. Separate pills rather than a joined
+   segment: seven of them never fit one phone row, and a joined strip that wide
+   drags the page sideways — see the note on .seg above. */
+.daytabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.daytabs button{padding:6px 13px;font-size:12.5px;font-weight:700;color:var(--muted);position:relative}
+.daytabs button.on{background:var(--red);color:#fff;border-color:var(--red)}
+.daytabs button.shut{text-decoration:line-through;opacity:.55}
+.daytabs button .dot{position:absolute;top:3px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--red)}
+.daytabs button.on .dot{background:#fff}
+.ownrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;font-weight:700}
+.ownrow:empty{display:none}
+.ownrow label{display:flex;gap:7px;align-items:center;cursor:pointer}
+.ownrow input{width:16px;height:16px;min-width:0}
+.pcount{font-size:12px;color:var(--muted);margin-top:10px;font-weight:600}
+.pcount:empty{display:none}
+.pcount b{color:var(--ink);font-weight:800}
 .subhead{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:16px 0 0}
 .subhead:first-child{margin-top:12px}
 /* chart colours: blue is the single series, critical red marks a loss or a
@@ -357,8 +374,12 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
       <p class="note" style="margin:5px 0 0"><b>#1 to #4 are a choice</b> &mdash; one entr&eacute;e per person &mdash; so those four split the room and should add up to 100%.
       <b>The extras below are handed to everyone</b>, so each sits at 100% on its own. Drop one to 0% on a day you are not serving it.
       <b>Extra buffer is 0</b> because the contract is one lunch each with no seconds &mdash; the kitchen makes exactly the headcount. Raise it only for a job that allows seconds.</p>
+      <p class="note" style="margin:6px 0 0"><b>Set them for the whole week, or day by day.</b> Every day follows <b>WHOLE WEEK</b> until you pick that day and tick the box &mdash; then it keeps its own numbers and stops following. A dot on a tab means that day has its own.</p>
+      <div class="daytabs" id="rateTabs"></div>
+      <div class="ownrow" id="rateOwn"></div>
       <div class="rategrid" id="rateGrid"></div>
       <div id="rateWarn"></div>
+      <div class="pcount" id="rateCount"></div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button id="rateReset">Reset percentages to defaults</button>
       </div>
@@ -1573,6 +1594,15 @@ if(!state.heads || typeof state.heads!=="object") state.heads={};
    point rather than a zero he would have to fill in six times. */
 PROJ_DAYS.forEach(d=>{ if(typeof state.heads[d]!=="number") state.heads[d]=1600; });
 state.rates = Object.assign({}, RATE_DEFAULTS, state.rates||{});
+/* A day either follows the week's percentages — stored as null — or carries a
+   full set of its own.  Kept as a whole set rather than a diff, so that editing
+   the week never silently moves a day that has already been tuned by hand.
+   Added later than state.rates, so an existing saved state has neither. */
+if(!state.dayRates || typeof state.dayRates!=="object") state.dayRates={};
+PROJ_DAYS.forEach(d=>{
+  const o = state.dayRates[d];
+  state.dayRates[d] = (o && typeof o==="object") ? Object.assign({}, RATE_DEFAULTS, o) : null;
+});
 
 /* What it sells for and what it costs.  All zero to start: nobody but the
    owner knows these numbers, and a guessed price is worse than a blank one. */
@@ -1732,7 +1762,7 @@ function buildGrid(){
     const cb=el("label"); const c=el("input"); c.type="checkbox"; c.checked=day.closed;
     c.onchange=()=>{ day.closed=c.checked; if(c.checked) day.special="";
       if(!day.closed && !day.special) refillIfBlank(d);
-      buildGrid(); buildHeadGrid(); render(); persist(); };
+      buildGrid(); buildHeadGrid(); buildRateGrid(); render(); persist(); };
     cb.appendChild(c); cb.appendChild(document.createTextNode("Closed"));
     const sp=el("input"); sp.type="text"; sp.placeholder="Special (e.g. 4TH OF JULY BUFFET)"; sp.value=day.special;
     sp.oninput=()=>{ const was=day.special; day.special=sp.value.toUpperCase();
@@ -2463,6 +2493,17 @@ function ratesNow(raw){
     r[k]=Math.max(0, Math.min(500, numOr(raw&&raw[k], RATE_DEFAULTS[k]))); });
   return r;
 }
+/* The week's percentages unless this day has been given its own.  `src` lets a
+   week pulled out of history resolve against the numbers it was saved with,
+   never today's — a week saved before per-day existed simply has no dayRates
+   and falls through to its own week figures. */
+function ratesFor(dayKey, src){
+  const s = src || state;
+  const ov = s.dayRates && s.dayRates[dayKey];
+  return ov ? Object.assign({}, s.rates, ov) : (s.rates || RATE_DEFAULTS);
+}
+function ownRateDays(){ return PROJ_DAYS.filter(d=>!!state.dayRates[d]); }
+
 function portions(heads, pct, buffer){
   if(!(heads>0) || !(pct>0)) return 0;
   /* Round to 6dp before ceiling.  200 x 50% x 1.10 lands on 110.00000000000001
@@ -2492,12 +2533,12 @@ function dayProjection(dayKey){
   const heads = state.heads[dayKey] || 0;
   if(dayKey==="sat"){
     if(state.sat.closed) return {closed:true};
-    const p = projectDay(heads, state.rates, {mergeE2:true});
+    const p = projectDay(heads, ratesFor("sat"), {mergeE2:true});
     return {p, heads:p.heads, dishes:{e1:state.sat.m1||"", e2:"", veg:state.sat.m2||"", salad:state.sat.m3||""}};
   }
   const day = state.days[dayKey];
   if(day.closed) return {closed:true};
-  const p = projectDay(heads, state.rates);
+  const p = projectDay(heads, ratesFor(dayKey));
   const sl = day.slots;
   return {p, heads:p.heads, special:day.special||"",
           dishes:{e1:(sl[0]||{}).t||"", e2:(sl[1]||{}).t||"", veg:(sl[2]||{}).t||"", salad:(sl[3]||{}).t||""}};
@@ -2638,9 +2679,14 @@ function renderProjection(){
   text += "WEEK TOTAL  "+parts.map(([l,n])=>l+" "+n).join("  |  ")+"\n";
 
   c.textAlign="left"; c.font="italic 400 16px "+FONT; c.fillStyle="#5A5A63";
-  const bufNow = ratesNow(state.rates).buffer;
+  /* Days can carry their own percentages, so there is not always one buffer to
+     name.  Only claim a figure when every open day agrees on it. */
+  const bufs = [...new Set(PROJ_DAYS.filter(d=>!isClosed(d)).map(d=>ratesNow(ratesFor(d)).buffer))];
+  const bufNow = bufs.length === 1 ? bufs[0] : null;
   c.fillText(anyHeads
-    ? (bufNow > 0
+    ? (bufNow === null
+        ? "Buffer varies by day. Counts are rounded up to whole portions. Set the headcount and percentages in the app."
+      : bufNow > 0
         ? "Counts include a "+bufNow+"% buffer and are rounded up to whole portions. Set the headcount and percentages in the app."
         : "One of each per person, no seconds — no buffer added. Rounded up to whole portions where a split does not divide evenly.")
     : "No headcount entered yet — open “Headcount & take rates” in the app and put in how many people you are feeding.",
@@ -2791,13 +2837,15 @@ function actualDay(dayKey){
 function takenFromRun(run){
   if(!run || !run.actual) return null;
   const mode = run.actual.mode === "taken" ? "taken" : "left";
-  let people = 0, days = 0, any = false;
-  const taken = {}; PROJ_ROWS.forEach(([k])=>taken[k]=0);
+  let people = 0, days = 0, any = false, planHeads = 0;
+  const taken = {}, planPct = {};
+  PROJ_ROWS.forEach(([k])=>{ taken[k]=0; planPct[k]=0; });
   PROJ_DAYS.forEach(d=>{
     const rec = run.actual[d]; if(!rec) return;
     const p = rec.people;
     if(p == null || !(p > 0)) return;
-    const made = projectDay((run.heads||{})[d] || 0, run.rates,
+    const dayRate = ratesFor(d, run);
+    const made = projectDay((run.heads||{})[d] || 0, dayRate,
                             d === "sat" ? {mergeE2:true} : undefined).counts;
     let recorded = false;
     PROJ_ROWS.forEach(([k])=>{
@@ -2809,29 +2857,44 @@ function takenFromRun(run){
       taken[k] += m - left;
       recorded = true;
     });
-    if(recorded){ people += p; days++; any = true; }
+    if(recorded){
+      people += p; days++; any = true;
+      /* Carry the plan as well as the outcome, weighted by the day's headcount.
+         Once days can differ there is no single "planned 40%" to compare the
+         actual against — the honest figure is the mix that was actually run. */
+      const dr = ratesNow(dayRate);
+      if(d === "sat"){ dr.e1 += dr.e2; dr.e2 = 0; }
+      const ph = Math.max(0, Math.floor(numOr((run.heads||{})[d], 0)));
+      planHeads += ph;
+      PROJ_ROWS.forEach(([k])=>{ planPct[k] += dr[k] * ph; });
+    }
   });
-  return (any && people) ? {people, days, taken} : null;
+  return (any && people) ? {people, days, taken, planHeads, planPct} : null;
 }
 
 /* The live week is just another run.  Averaging across every stored week is the
    whole reason for keeping them — one week is a sample of one. */
-function liveRun(){ return {actual:state.actual, heads:state.heads, rates:state.rates}; }
+function liveRun(){ return {actual:state.actual, heads:state.heads,
+                            rates:state.rates, dayRates:state.dayRates}; }
 
 function actualRates(includeHistory){
   const runs = [liveRun()];
   if(includeHistory !== false) HIST.forEach(h=>{ if(h.run) runs.push(h.run); });
-  let people = 0, days = 0, weeks = 0;
-  const taken = {}; PROJ_ROWS.forEach(([k])=>taken[k]=0);
+  let people = 0, days = 0, weeks = 0, planHeads = 0;
+  const taken = {}, planPct = {};
+  PROJ_ROWS.forEach(([k])=>{ taken[k]=0; planPct[k]=0; });
   runs.forEach(r=>{
     const t = takenFromRun(r); if(!t) return;
-    weeks++; people += t.people; days += t.days;
-    PROJ_ROWS.forEach(([k])=>{ taken[k] += t.taken[k]; });
+    weeks++; people += t.people; days += t.days; planHeads += t.planHeads;
+    PROJ_ROWS.forEach(([k])=>{ taken[k] += t.taken[k]; planPct[k] += t.planPct[k]; });
   });
   if(!people) return null;
-  const pct = {};
-  PROJ_ROWS.forEach(([k])=>{ pct[k] = taken[k]/people*100; });
-  return {people, days, weeks, taken, pct};
+  const pct = {}, plan = {}, fallback = ratesNow(state.rates);
+  PROJ_ROWS.forEach(([k])=>{
+    pct[k]  = taken[k]/people*100;
+    plan[k] = planHeads ? planPct[k]/planHeads : fallback[k];
+  });
+  return {people, days, weeks, taken, pct, plan};
 }
 
 /* Turn what actually happened into the planning percentages.  The four
@@ -3147,38 +3210,120 @@ function buildHeadGrid(){
     const i=document.createElement("input");
     i.type="number"; i.min="0"; i.max="99999"; i.value=state.heads[d]||"";
     i.placeholder="0"; i.disabled=closed;
-    i.oninput=()=>{ state.heads[d]=Math.max(0,Math.floor(numOr(i.value,0))); render(); persist(); };
+    i.oninput=()=>{ state.heads[d]=Math.max(0,Math.floor(numOr(i.value,0)));
+      rateCount(); render(); persist(); };
     l.appendChild(i); g.appendChild(l);
   });
 }
 
+/* Whose percentages the panel is showing — "week" is the baseline every day
+   follows until it is given a set of its own.  Only one set is on screen at a
+   time on purpose: the alternative was a seven-column grid of seventy boxes,
+   which does not survive a phone. */
+let RATE_SEL = "week";
+
 function buildRateGrid(){
-  const g=document.getElementById("rateGrid"); g.innerHTML="";
+  const tabs=document.getElementById("rateTabs");
+  const own =document.getElementById("rateOwn");
+  const g   =document.getElementById("rateGrid");
+  if(!tabs || !own || !g) return;
+  if(RATE_SEL!=="week" && PROJ_DAYS.indexOf(RATE_SEL)<0) RATE_SEL="week";
+
+  tabs.innerHTML="";
+  const tab=(key,label,shut)=>{
+    const b=document.createElement("button");
+    b.innerHTML = label + (key!=="week" && state.dayRates[key] ? '<span class="dot"></span>' : "");
+    b.className = (RATE_SEL===key ? "on" : "") + (shut ? " shut" : "");
+    if(shut) b.title = label+" is closed this week";
+    b.onclick=()=>{ RATE_SEL=key; buildRateGrid(); };
+    tabs.appendChild(b);
+  };
+  tab("week","WHOLE WEEK");
+  PROJ_DAYS.forEach(d=>tab(d, HEAD_LABEL[d], isClosed(d)));
+
+  const isWeek = RATE_SEL==="week";
+  own.innerHTML="";
+  if(!isWeek){
+    const cb=document.createElement("input");
+    cb.type="checkbox"; cb.checked=!!state.dayRates[RATE_SEL];
+    /* Ticking copies the numbers the day is using right now, so the fields do
+       not jump the instant it stops following the week. */
+    cb.onchange=()=>{
+      state.dayRates[RATE_SEL] = cb.checked ? ratesNow(ratesFor(RATE_SEL)) : null;
+      buildRateGrid(); render(); persist();
+    };
+    const l=document.createElement("label");
+    l.appendChild(cb);
+    l.appendChild(el("span",null, HEAD_LABEL[RATE_SEL]+" has its own percentages"));
+    own.appendChild(l);
+    if(!cb.checked) own.appendChild(el("span",null,
+      '<span style="font-weight:600;color:var(--muted)">&mdash; right now it follows the week</span>'));
+  }
+
+  const live = isWeek ? state.rates : ratesFor(RATE_SEL);
+  const editable = isWeek || !!state.dayRates[RATE_SEL];
+  g.innerHTML="";
   Object.keys(RATE_DEFAULTS).forEach(k=>{
     const l=el("label","f", RATE_LABEL[k]+" %");
     const i=document.createElement("input");
-    i.type="number"; i.min="0"; i.max="500"; i.step="5"; i.value=state.rates[k];
-    i.oninput=()=>{ state.rates[k]=Math.max(0,Math.min(500,numOr(i.value,RATE_DEFAULTS[k])));
-      rateWarning(); render(); persist(); };
+    i.type="number"; i.min="0"; i.max="500"; i.step="5"; i.value=live[k];
+    i.disabled=!editable;
+    i.oninput=()=>{
+      const v=Math.max(0,Math.min(500,numOr(i.value,RATE_DEFAULTS[k])));
+      if(isWeek) state.rates[k]=v; else state.dayRates[RATE_SEL][k]=v;
+      rateWarning(); render(); persist();
+    };
     l.appendChild(i); g.appendChild(l);
   });
+
+  const rb=document.getElementById("rateReset");
+  if(rb) rb.textContent = isWeek ? "Reset percentages to defaults"
+                                 : "Reset "+HEAD_LABEL[RATE_SEL]+" to defaults";
   rateWarning();
 }
 
 /* The one mistake that is easy to make here: entrees are a choice, so their
-   three percentages share the room.  Say so out loud rather than silently
+   four percentages share the room.  Say so out loud rather than silently
    producing counts for 140% of the people in the building. */
 function rateWarning(){
   const w=document.getElementById("rateWarn"); if(!w) return;
-  const r=ratesNow(state.rates), cov=r.e1+r.e2+r.veg+r.salad;
+  const isWeek = RATE_SEL==="week";
+  const r=ratesNow(isWeek ? state.rates : ratesFor(RATE_SEL));
+  const cov=Math.round((r.e1+r.e2+r.veg+r.salad)*10)/10;
+  const who = isWeek ? "" : HEAD_LABEL[RATE_SEL]+" &mdash; ";
   if(cov>100){
-    w.innerHTML='<div class="warn">#1 to #4 add up to <b>'+cov+'%</b> of the room. '
-      +'Everyone takes one entr&eacute;e, so this makes '+(cov-100)+'% more entr&eacute;es than people. '
+    w.innerHTML='<div class="warn">'+who+'#1 to #4 add up to <b>'+cov+'%</b> of the room. '
+      +'Everyone takes one entr&eacute;e, so this makes '+(Math.round((cov-100)*10)/10)+'% more entr&eacute;es than people. '
       +'Fine if that is deliberate &mdash; just so you know.</div>';
   } else if(cov<100){
-    w.innerHTML='<div class="warn">#1 to #4 add up to <b>'+cov+'%</b>, so '+(100-cov)+'% of people '
+    w.innerHTML='<div class="warn">'+who+'#1 to #4 add up to <b>'+cov+'%</b>, so '+(Math.round((100-cov)*10)/10)+'% of people '
       +'get no entr&eacute;e at all. If everybody takes one, these four should come to 100.</div>';
   } else w.innerHTML="";
+  rateCount();
+}
+
+/* A percentage means nothing to a kitchen; 880 trays of tacos does.  Show what
+   the numbers on screen actually produce for the day being edited. */
+function rateCount(){
+  const c=document.getElementById("rateCount"); if(!c) return;
+  if(RATE_SEL==="week"){
+    const off=ownRateDays();
+    c.innerHTML = off.length
+      ? "These are the week&rsquo;s numbers. <b>"+off.map(d=>HEAD_LABEL[d]).join(", ")+"</b> "
+        + (off.length===1 ? "has its own" : "have their own")
+        + ", so " + (off.length===1 ? "it will" : "they will") + " not follow a change here."
+      : "These are the week&rsquo;s numbers &mdash; every day follows them. Pick a day above to give it its own.";
+    return;
+  }
+  const d=RATE_SEL;
+  if(isClosed(d)){ c.innerHTML = HEAD_LABEL[d]+" is closed this week, so it makes nothing."; return; }
+  const heads = state.heads[d]||0;
+  if(!heads){ c.innerHTML = "No headcount for "+HEAD_LABEL[d]+" yet, so it makes nothing."; return; }
+  const p = projectDay(heads, ratesFor(d), d==="sat" ? {mergeE2:true} : undefined).counts;
+  /* Saturday runs one meat main, so there is no #2 to report. */
+  c.innerHTML = HEAD_LABEL[d]+" at <b>"+heads+"</b> people makes <b>"+p.e1+"</b> of #1, "
+    + (d==="sat" ? "" : "<b>"+p.e2+"</b> of #2, ")
+    + "<b>"+p.veg+"</b> vegan, <b>"+p.salad+"</b> salad.";
 }
 
 /* ================= reuse a past week =================
@@ -3280,6 +3425,16 @@ function runPreflight(){
   seen.forEach((where,name)=>{ if(where.length>1) dupes.push(name+" &mdash; "+where.join(" and ")); });
   PROJ_DAYS.forEach(d=>{ if(!isClosed(d) && !(state.heads[d]>0)) noHeads.push(HEAD_LABEL[d]); });
 
+  /* Once days can carry their own percentages it is easy to leave one at 95%.
+     The panel warns while you are in it; this catches it on the way out. */
+  const badSplit=[];
+  PROJ_DAYS.forEach(d=>{
+    if(isClosed(d)) return;
+    const r=ratesNow(ratesFor(d));
+    const cov=Math.round((r.e1+r.e2+r.veg+r.salad)*10)/10;
+    if(cov!==100) badSplit.push(HEAD_LABEL[d]+" "+cov+"%");
+  });
+
   const list=(a,max)=>a.slice(0,max||6).join(" &middot; ") + (a.length>(max||6) ? " &middot; and "+(a.length-(max||6))+" more" : "");
   const uniq=a=>[...new Set(a)];
 
@@ -3296,6 +3451,8 @@ function runPreflight(){
     +" as free on the Profit sheet: "+list(uniq(noCost),6));
   if(noDesc.length) note.push("<b>"+noDesc.length+" dish"+(noDesc.length===1?" has":"es have")
     +" no description:</b> "+list(uniq(noDesc),6));
+  if(badSplit.length) note.push("<b>The #1&ndash;#4 split does not come to 100%</b> on "+list(badSplit)
+    +". Everyone takes one entr&eacute;e, so those four should total 100.");
   if(noHeads.length) note.push("<b>No headcount</b> for "+list(noHeads)
     +", so "+(noHeads.length===1?"that day makes":"those days make")+" nothing.");
   if(!moneyNow().price) note.push("<b>No price per person</b>, so the Profit sheet shows no revenue.");
@@ -3361,7 +3518,7 @@ function dishStats(){
       const rec=(src.run.actual||{}).sat;
       const people = rec && rec.people;
       if(rec && people!=null && people>0){
-        const made = projectDay((src.run.heads||{}).sat||0, src.run.rates, {mergeE2:true}).counts;
+        const made = projectDay((src.run.heads||{}).sat||0, ratesFor("sat", src.run), {mergeE2:true}).counts;
         SAT_SLOT_KEYS.forEach((key,i)=>{
           const name=(satNames[i]||"").trim().toUpperCase(); if(!name) return;
           const v = rec.n ? rec.n[key] : null;
@@ -3379,7 +3536,7 @@ function dishStats(){
       const rec = (src.run.actual||{})[d]; if(!rec) return;
       const people = rec.people;
       if(people==null || !(people>0)) return;
-      const made = projectDay((src.run.heads||{})[d]||0, src.run.rates).counts;
+      const made = projectDay((src.run.heads||{})[d]||0, ratesFor(d, src.run)).counts;
       const names = src.days[d] || [];
       ENTREE_SLOT_KEYS.forEach((key,i)=>{
         const name=(names[i]||"").trim().toUpperCase(); if(!name) return;
@@ -3806,9 +3963,12 @@ function buildActualWeek(){
   if(!a){ w.innerHTML='<p class="note" style="margin-top:14px">Nothing recorded yet this week. '
     + 'Once a day or two is in, this is where the real take rates show up.</p>'; return; }
 
-  const planned = ratesNow(state.rates);
+  /* Weighted by headcount across every day counted, so a week where only
+     Tuesday was tweaked is compared against the mix that actually ran — not
+     against whatever the WHOLE WEEK tab happens to say. */
+  const planned = a.plan;
   const rows = PROJ_ROWS.map(([k,lab,kind])=>{
-    const act = Math.round(a.pct[k]*10)/10, plan = planned[k];
+    const act = Math.round(a.pct[k]*10)/10, plan = Math.round(planned[k]*10)/10;
     const gap = Math.round((act-plan)*10)/10;
     return '<div class="arow"><div class="nm">'+(kind==="entree"?lab:RATE_LABEL[k].toUpperCase())+'</div>'
       + '<div class="made">'+plan+'%</div>'
@@ -3855,7 +4015,13 @@ function buildActualWeek(){
     if(!confirm("Replace your planning percentages with what actually happened?\n\n"
       + ent + "\n\nBased on "+src.weeks+" week"+(src.weeks===1?"":"s")+", "
       + src.people+" people served.\n"
-      + "The extras move to their recorded rates too. You can always change them by hand.")) return;
+      + "The extras move to their recorded rates too. You can always change them by hand."
+      + (ownRateDays().length
+          ? "\n\nThis sets the WHOLE WEEK numbers. "
+            + ownRateDays().map(d=>HEAD_LABEL[d]).join(", ")+" "
+            + (ownRateDays().length===1 ? "has its own set" : "have their own sets")
+            + " and will not change."
+          : ""))) return;
     Object.assign(state.rates, next);
     buildRateGrid(); buildActualWeek(); render(); persist();
     toast("Percentages updated from what actually got served");
@@ -4477,6 +4643,7 @@ function weekSnapshot(){
   return {
     heads:  JSON.parse(JSON.stringify(state.heads)),
     rates:  JSON.parse(JSON.stringify(state.rates)),
+    dayRates: JSON.parse(JSON.stringify(state.dayRates)),
     money:  JSON.parse(JSON.stringify(moneyNow())),
     actual: JSON.parse(JSON.stringify(state.actual)),
     result: {people:tot.heads, revenue:tot.revenue, food:tot.food, labor:tot.labor,
@@ -4604,21 +4771,36 @@ function wire(){
     ["GLUTEN","DAIRY","EGG","SOY","FISH","SHELLFISH","TREE NUTS","PEANUTS","SESAME","PORK","NONE"]
       .map(t=>"<span>"+t+"</span>").join("");
   const sc=document.getElementById("satClosed"); sc.checked=state.sat.closed;
-  sc.onchange=()=>{ state.sat.closed=sc.checked; buildHeadGrid(); render(); persist(); };
+  sc.onchange=()=>{ state.sat.closed=sc.checked; buildHeadGrid(); buildRateGrid(); render(); persist(); };
 
   const hAll=document.getElementById("headsAll");
   document.getElementById("headsApply").onclick=()=>{
     const n=Math.max(0,Math.floor(numOr(hAll.value,0)));
     if(!n){ toast("Put a number in first"); return; }
     PROJ_DAYS.forEach(d=>{ if(!isClosed(d)) state.heads[d]=n; });
-    buildHeadGrid(); render(); persist(); toast(n+" people set for every open day");
+    buildHeadGrid(); rateCount(); render(); persist(); toast(n+" people set for every open day");
   };
   document.getElementById("headsClear").onclick=()=>{
     PROJ_DAYS.forEach(d=>state.heads[d]=0); hAll.value="";
-    buildHeadGrid(); render(); persist(); toast("Headcounts cleared");
+    buildHeadGrid(); rateCount(); render(); persist(); toast("Headcounts cleared");
   };
+  /* Resetting from a day tab resets that day. Resetting from WHOLE WEEK puts
+     everything back, including the days that had broken away — say so first,
+     because that is the one press here that can throw away work. */
   document.getElementById("rateReset").onclick=()=>{
+    if(RATE_SEL!=="week"){
+      state.dayRates[RATE_SEL]=Object.assign({},RATE_DEFAULTS);
+      buildRateGrid(); render(); persist();
+      toast(HEAD_LABEL[RATE_SEL]+" back to defaults"); return;
+    }
+    const off=ownRateDays();
+    if(off.length && !confirm(
+        "Put the week's percentages back to the defaults?\n\n"
+      + off.map(d=>HEAD_LABEL[d]).join(", ")+" "
+      + (off.length===1 ? "has its own set" : "have their own sets")
+      + " and will be cleared too, so every day follows the week again.")) return;
     state.rates=Object.assign({},RATE_DEFAULTS);
+    PROJ_DAYS.forEach(d=>state.dayRates[d]=null);
     buildRateGrid(); render(); persist(); toast("Percentages back to defaults");
   };
 
