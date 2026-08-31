@@ -2612,98 +2612,174 @@ function renderProjection(){
   const totals = {}; PROJ_ROWS.forEach(([k])=>totals[k]=0);
   let totalHeads = 0, anyHeads = false;
 
-  /* Content is drawn first and the column boxes are sized to fit it afterwards.
-     A fixed-height box leaves half the sheet empty on a normal week. */
-  const colEnd = [];
+  /* The sheet used to draw every column at one fixed size and then grow the box
+     to fit, which left the bottom third of the page blank on a normal week —
+     only 64% of it used.  And the biggest number on each card was the headcount,
+     which is an input, while the counts the kitchen actually works to were 19px.
 
-  DP_DAYS.forEach(([key,label],i)=>{
-    const x=PJ_COLX[i];
+     So: measure a column, then scale the whole sheet to fill the page, and
+     rebalance so the portion counts read from across a kitchen. */
+  const PJ_TOP = 468;
+  const PJ_HEAD_PX = 42;      /* headcount — context, was 66 and dominated */
+  const PJ_NUM_PX  = 32;      /* the portion count — the instruction, was 19 */
+  const PJ_BOXW    = 132, PJ_BOXH = 46;   /* entree count box */
+  const PJ_ABOXW   = 96,  PJ_ABOXH = 36;  /* the extras, count beside the name */
+  const PJ_ANUM_PX = 26;
+  /* The name is the label; the count is the instruction, so the name does not
+     need to grow as fast.  Keeping it smaller buys characters per line, which
+     is what stops long dish names being silently cut. */
+  const PJ_NAME_PX = 12;
+
+  /* One column, measured or drawn.  Text is accumulated on the draw pass only,
+     so measuring cannot duplicate it. */
+  const projColumn = (i, s, draw) => {
+    const [key,label] = DP_DAYS[i];
+    const x = PJ_COLX[i];
     const d = dayProjection(key);
-    let y = 468;
-    text += label+"\n";
+    let y = PJ_TOP;
+    if(draw) text += label+"\n";
 
     if(d.closed){
-      c.font="700 17px "+FONT; c.textAlign="center"; c.fillStyle=BLK;
-      c.fillText("CLOSED", x+PJ_COLW/2, y);
-      colEnd.push(y+10);
-      text += "  CLOSED\n\n"; return;
+      if(draw){
+        c.font="700 "+(17*s).toFixed(2)+"px "+FONT; c.textAlign="center"; c.fillStyle=BLK;
+        c.fillText("CLOSED", x+PJ_COLW/2, y);
+        text += "  CLOSED\n\n";
+      }
+      return y + 10*s;
     }
 
-    /* headcount, the number everything else hangs off */
-    c.textAlign="center";
-    c.font="700 11px "+FONT; c.fillStyle="#8A8A93";
-    spaced(c,"PEOPLE EXPECTED", x+PJ_COLW/2, y, 1.4);
-    c.font="700 66px "+FONT; c.fillStyle = d.heads ? BLK : "#C9C9D1";
-    c.fillText(d.heads ? String(d.heads) : "—", x+PJ_COLW/2, y+66);
-    y += 104;
-    totalHeads += d.heads; if(d.heads) anyHeads = true;
-    text += "  "+(d.heads||0)+" people\n";
+    /* headcount — the number everything else hangs off, but not the loudest */
+    if(draw){
+      c.textAlign="center";
+      c.font="700 "+(11*s).toFixed(2)+"px "+FONT; c.fillStyle="#8A8A93";
+      spaced(c,"PEOPLE EXPECTED", x+PJ_COLW/2, y, 1.4*s);
+      c.font="700 "+(PJ_HEAD_PX*s).toFixed(2)+"px "+FONT; c.fillStyle = d.heads ? BLK : "#C9C9D1";
+      c.fillText(d.heads ? String(d.heads) : "—", x+PJ_COLW/2, y+PJ_HEAD_PX*s);
+      totalHeads += d.heads; if(d.heads) anyHeads = true;
+      text += "  "+(d.heads||0)+" people\n";
+    }
+    y += (PJ_HEAD_PX + 38)*s;
 
-    c.strokeStyle="#E2E2E7"; c.lineWidth=1;
-    c.beginPath(); c.moveTo(x+14,y-14); c.lineTo(x+PJ_COLW-14,y-14); c.stroke();
+    if(draw){
+      c.strokeStyle="#E2E2E7"; c.lineWidth=1;
+      c.beginPath(); c.moveTo(x+14,y-14*s); c.lineTo(x+PJ_COLW-14,y-14*s); c.stroke();
+    }
 
     const sectionLabel=(txt)=>{
-      c.textAlign="left"; c.font="700 10.5px "+FONT; c.fillStyle="#8A8A93";
-      spaced(c, txt, x+14+c.measureText(txt).width/2, y, 1.2);
-      c.strokeStyle="#E2E2E7"; c.lineWidth=1;
-      c.beginPath(); c.moveTo(x+14, y+5); c.lineTo(x+PJ_COLW-14, y+5); c.stroke();
-      y += 22;
+      if(draw){
+        c.textAlign="left"; c.font="700 "+(10.5*s).toFixed(2)+"px "+FONT; c.fillStyle="#8A8A93";
+        spaced(c, txt, x+14+c.measureText(txt).width/2, y, 1.2*s);
+        c.strokeStyle="#E2E2E7"; c.lineWidth=1;
+        c.beginPath(); c.moveTo(x+14, y+5*s); c.lineTo(x+PJ_COLW-14, y+5*s); c.stroke();
+      }
+      y += 22*s;
     };
 
-    /* one line: number chip, dish name, portion count in a box on the right */
-    const row=(chip, name, n, muted)=>{
-      const boxW=62, boxX=x+PJ_COLW-14-boxW;
-      if(chip){
-        c.fillStyle=RED; rr(c, x+14, y-10, 17, 13, 3.5); c.fill();
-        c.fillStyle="#fff"; c.font="700 10px "+FONT; c.textAlign="center";
-        c.fillText(chip, x+22.5, y);
+    /* An entree gets its name across the full column and the count on its own
+       line underneath.  Side by side does not work here: the column is a fixed
+       323px, so a count big enough to read across a kitchen leaves about seven
+       characters for the dish name and runs straight over it. */
+    const rowStacked=(chip, name, n)=>{
+      const chipW=19*s, chipH=15*s;
+      const nameX = x + 14 + chipW + 7*s;
+      const nameW = (x+PJ_COLW-14) - nameX;
+      c.font="700 "+(PJ_NAME_PX*s).toFixed(2)+"px "+FONT;
+      const lines = wrap(c, name || "—", nameW).slice(0,3);   /* was 2 */
+      if(draw){
+        c.fillStyle=RED; rr(c, x+14, y-11*s, chipW, chipH, 4*s); c.fill();
+        c.fillStyle="#fff"; c.font="700 "+(11*s).toFixed(2)+"px "+FONT; c.textAlign="center";
+        c.fillText(chip, x+14+chipW/2, y);
+        c.textAlign="left"; c.font="700 "+(PJ_NAME_PX*s).toFixed(2)+"px "+FONT; c.fillStyle=RED;
+        lines.forEach((l,li)=>c.fillText(l, nameX, y + li*16*s));
       }
-      c.textAlign="left"; c.font="700 12.5px "+FONT; c.fillStyle = muted ? "#8A8A93" : RED;
-      const lines = wrap(c, name || "—", PJ_COLW - 52 - boxW - 8);
-      lines.slice(0,2).forEach((l,li)=>c.fillText(l, x+(chip?37:14), y + li*15));
-      const nameH = Math.min(lines.length,2)*15;
+      y += lines.length*15*s + 8*s;
 
-      c.fillStyle = n ? "#F2F2F5" : "#FAFAFC";
-      rr(c, boxX, y-15, boxW, 26, 7); c.fill();
-      c.font="700 19px "+FONT; c.textAlign="center";
-      c.fillStyle = n ? BLK : "#C9C9D1";
-      c.fillText(n ? String(n) : "0", boxX+boxW/2, y+4);
+      const boxW=PJ_BOXW*s, boxH=PJ_BOXH*s, boxX=x+14+chipW+7*s;
+      if(draw){
+        c.fillStyle = n ? "#F2F2F5" : "#FAFAFC";
+        rr(c, boxX, y, boxW, boxH, 8*s); c.fill();
+        c.font="700 "+(PJ_NUM_PX*s).toFixed(2)+"px "+FONT; c.textAlign="center";
+        c.fillStyle = n ? BLK : "#C9C9D1";
+        c.fillText(n ? String(n) : "0", boxX+boxW/2, y+boxH*0.72);
+        text += "    "+(chip?chip+" ":"")+(name||"—")+" ......... "+n+"\n";
+      }
+      y += boxH + 14*s;
+    };
 
-      y += Math.max(nameH, 26) + 9;
-      text += "    "+(chip?chip+" ":"")+(name||"—")+" ......... "+n+"\n";
+    /* The extras are one short word each, so they stay on one line with the
+       count beside them. */
+    const rowInline=(name, n)=>{
+      const boxW=PJ_ABOXW*s, boxH=PJ_ABOXH*s, boxX=x+PJ_COLW-14-boxW;
+      c.font="700 "+(PJ_NAME_PX*s).toFixed(2)+"px "+FONT;
+      if(draw){
+        c.textAlign="left"; c.fillStyle="#8A8A93";
+        c.fillText(name, x+14, y+boxH*0.62);
+        c.fillStyle = n ? "#F2F2F5" : "#FAFAFC";
+        rr(c, boxX, y, boxW, boxH, 7*s); c.fill();
+        c.font="700 "+(PJ_ANUM_PX*s).toFixed(2)+"px "+FONT; c.textAlign="center";
+        c.fillStyle = n ? BLK : "#C9C9D1";
+        c.fillText(n ? String(n) : "0", boxX+boxW/2, y+boxH*0.72);
+        text += "    "+name+" ......... "+n+"\n";
+      }
+      y += boxH + 10*s;
     };
 
     if(d.special){
       sectionLabel("SPECIAL");
-      c.textAlign="left"; c.font="700 12.5px "+FONT; c.fillStyle=RED;
-      wrap(c, d.special, PJ_COLW-28).forEach(l=>{ c.fillText(l, x+14, y); y+=16; });
-      y += 12;
-      text += "    SPECIAL: "+d.special+"\n";
+      if(draw){ c.textAlign="left"; c.font="700 "+(PJ_NAME_PX*s).toFixed(2)+"px "+FONT; c.fillStyle=RED; }
+      c.font="700 "+(PJ_NAME_PX*s).toFixed(2)+"px "+FONT;
+      wrap(c, d.special, PJ_COLW-28).forEach(l=>{ if(draw) c.fillText(l, x+14, y); y+=16*s; });
+      y += 12*s;
+      if(draw) text += "    SPECIAL: "+d.special+"\n";
     } else {
       sectionLabel("MAKE THIS MANY");
-      text += "    MAKE THIS MANY\n";
+      if(draw) text += "    MAKE THIS MANY\n";
       PROJ_ROWS.filter(r=>r[2]==="entree").forEach(([k,lab])=>{
         if(key==="sat" && k==="e2") return;          /* Saturday has no #2 */
         const n = d.p.counts[k];
-        totals[k] += n;
-        row(key==="sat" ? {e1:"1",veg:"2",salad:"3"}[k] : lab.replace("#",""), d.dishes[k], n, false);
+        if(draw) totals[k] += n;
+        rowStacked(key==="sat" ? {e1:"1",veg:"2",salad:"3"}[k] : lab.replace("#",""), d.dishes[k], n);
       });
-      y += 6;
+      y += 6*s;
     }
 
     sectionLabel("ALSO PUT OUT");
-    text += "    ALSO PUT OUT\n";
+    if(draw) text += "    ALSO PUT OUT\n";
     ADDON_KEYS.forEach(k=>{
       const n = d.p ? d.p.counts[k] : 0;
-      totals[k] += n;
-      row("", RATE_LABEL[k].toUpperCase(), n, true);
+      if(draw) totals[k] += n;
+      rowInline(RATE_LABEL[k].toUpperCase(), n);
     });
-    colEnd.push(y);
-    text += "\n";
-  });
+    if(draw) text += "\n";
+    return y;
+  };
+
+  /* Scale so the tallest column fills the page.  Room is bounded by where the
+     week-total strip and its footnote have to sit, not by the canvas edge. */
+  const PJ_BOX_MAX = 1556;
+  const PJ_ROOM = PJ_BOX_MAX - 22 - PJ_TOP;
+  const projTallest = (s)=>Math.max.apply(null, DP_DAYS.map((_,i)=>projColumn(i, s, false))) - PJ_TOP;
+
+  let ps = 1, guard = 0;
+  {
+    let ph = projTallest(ps);
+    if(ph > PJ_ROOM){
+      while(ph > PJ_ROOM && ps > 0.6 && guard++ < 14){
+        ps = Math.max(0.6, ps*Math.max(0.90, Math.min(0.97, PJ_ROOM/ph)));
+        ph = projTallest(ps);
+      }
+    } else {
+      while(ps < 1.6 && guard++ < 40){
+        const t = Math.min(1.6, ps*1.03);
+        if(projTallest(t) > PJ_ROOM) break;
+        ps = t;
+      }
+    }
+  }
+  const colEnd = DP_DAYS.map((_,i)=>projColumn(i, ps, true));
 
   /* boxes last, all the same height, sized to the tallest column */
-  const boxBottom = Math.min(1588, Math.max(763, Math.max.apply(null, colEnd) + 22));
+  const boxBottom = Math.min(PJ_BOX_MAX, Math.max(763, Math.max.apply(null, colEnd) + 22));
   DP_DAYS.forEach(([,label],i)=>{
     const x=PJ_COLX[i];
     c.strokeStyle=BLK; c.lineWidth=4; rr(c,x,343,PJ_COLW,boxBottom-343,26); c.stroke();
