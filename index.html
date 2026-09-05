@@ -327,7 +327,9 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
    deliberately mirrors the builder's day cards, and every slot shows the
    description and allergen line it will print — a dish can match by name
    and still carry an allergen you did not intend. */
-.imp{position:fixed;inset:0;background:rgba(10,10,13,.55);z-index:110;display:none;
+/* Above the undo bar (115) so a second import cannot be blocked by the last
+   one's bar, but below the save alert (120), which always has to be readable. */
+.imp{position:fixed;inset:0;background:rgba(10,10,13,.55);z-index:118;display:none;
   align-items:center;justify-content:center;padding:0}
 .imp.on{display:flex}
 @media(min-width:900px){.imp.on{padding:26px}}
@@ -377,6 +379,15 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
 .counts b.c-ok{color:#2E7D46;border-color:#b7ddc4;background:#f1faf4}
 .counts b.c-check{color:#8a6410;border-color:#ecd9a8;background:#fff8e9}
 .counts b.c-new{color:#4A5568;border-color:#d3d8e0;background:#f5f6f8}
+.implabel{display:flex;gap:9px;align-items:center;flex-wrap:wrap;background:#f5f7fb;
+  border:1px solid #d9e0ec;border-radius:10px;padding:9px 11px;margin:0 0 12px}
+.implabel[hidden]{display:none}
+.implabel label{font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.5px;
+  text-transform:uppercase}
+.implabel input{flex:1;min-width:120px;border:1px solid #c8d2e2;border-radius:7px;padding:6px 8px;
+  font-size:12.5px;font-weight:800;color:var(--red);text-transform:uppercase;background:#fff}
+.implabel .src{font-size:10.5px;color:var(--muted);font-weight:600}
+.implabel .src b{color:#454545;font-weight:700}
 .impcards{display:flex;flex-direction:column;gap:12px}
 @media(min-width:900px){.impcards{display:grid;grid-template-columns:repeat(2,1fr);align-items:start}}
 @media(min-width:1300px){.impcards{grid-template-columns:repeat(3,1fr)}}
@@ -682,6 +693,11 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
         salads and vegan dishes find their own slot. Nothing changes until you have looked it over.</div>
       </div>
       <div id="impStep2" hidden>
+        <div class="implabel" id="impLabelRow" hidden>
+          <label for="impLabel">Date label</label>
+          <input type="text" id="impLabel">
+          <span class="src">read off your sheet &mdash; now <b id="impLabelWas"></b></span>
+        </div>
         <div class="counts" id="impCounts"></div>
         <div class="impcards" id="impCards"></div>
       </div>
@@ -5384,6 +5400,21 @@ function impWeekLabel(line){
   return null;
 }
 
+/* "Sept 7-12", "SEPTEMBER 7 - 12", "sept 7 – 12" all become "SEPT 7 - 12",
+   which is exactly what autoLabel() would have produced for that week. */
+function impTidyLabel(raw){
+  let t = String(raw||"").toUpperCase().trim()
+    .replace(/[\u2010-\u2015]/g,"-")      /* every kind of dash */
+    .replace(/\.$/,"")
+    .replace(/\s+/g," ");
+  t = t.replace(/\b([A-Z]{3,9})\b/g, w=>{
+    const i = MON_SHORT.findIndex(m=>w.startsWith(m.slice(0,3)) && /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/.test(w));
+    return i>=0 ? MON_SHORT[i] : w;
+  });
+  t = t.replace(/\s*-\s*/g," - ").replace(/\s+/g," ").trim();
+  return t;
+}
+
 function impParse(text){
   const out = {label:null, days:{}, loose:[]};
   ["mon","tue","wed","thu","fri","sat"].forEach(d=>out.days[d]={items:[], closed:false});
@@ -5622,7 +5653,8 @@ function impRead(){
   }
 
   IMP = {rows:rows, counts:counts, closed:parsed.days, loose:parsed.loose,
-         label:parsed.label, sat:parsed.days.sat.items.slice()};
+         label:parsed.label ? impTidyLabel(parsed.label) : null,
+         sat:parsed.days.sat.items.slice()};
   impStep(2);
   impRenderReview();
   document.getElementById("impBody").scrollTop = 0;
@@ -5695,6 +5727,14 @@ const IMP_PILL = {ok:"MATCHED", check:"CHECK", "new":"NEW DISH", none:"NOT WRITT
 
 function impRenderReview(){
   document.getElementById("impCounts").innerHTML = impCountsHtml(IMP.counts);
+  /* The date label only changes if the sheet actually carried one, and it is
+     shown here first — the same rule as every dish. */
+  const lrow = document.getElementById("impLabelRow");
+  lrow.hidden = !IMP.label;
+  if(IMP.label){
+    document.getElementById("impLabel").value = IMP.label;
+    document.getElementById("impLabelWas").textContent = state.dateLabel || "(blank)";
+  }
   const wrap = document.getElementById("impCards");
   wrap.innerHTML = "";
 
@@ -5768,7 +5808,7 @@ function impRenderReview(){
 
 /* Step 2 -> the week itself. */
 function impApply(){
-  IMP_UNDO = JSON.parse(JSON.stringify(state.days));
+  IMP_UNDO = {days: JSON.parse(JSON.stringify(state.days)), dateLabel: state.dateLabel};
   let put=0, skippedLock=0;
   IMP.rows.forEach(r=>{
     if(r.i<0 || !r.raw || r.chosen==="__skip") return;
@@ -5781,15 +5821,31 @@ function impApply(){
   });
   DAYS.forEach(d=>{ if(IMP.closed[d] && IMP.closed[d].closed) state.days[d].closed = true; });
 
+  let labelSet = null;
+  const li = document.getElementById("impLabel");
+  if(IMP.label && li && li.value.trim()){
+    labelSet = impSetLabel(li.value.trim());
+  }
+
   syncUI(); render(); persist();
   impClose();
-  impUndoBar(put, skippedLock);
+  impUndoBar(put, skippedLock, labelSet);
 }
 
-function impUndoBar(put, locked){
+/* Going through the field's own handler keeps the header chip, the canvas and
+   the saved state in step — there is only one place that logic lives. */
+function impSetLabel(text){
+  const dl = document.getElementById("dateLabel");
+  dl.value = text;
+  dl.dispatchEvent(new Event("input"));
+  return dl.value;
+}
+
+function impUndoBar(put, locked, labelSet){
   const bar = document.getElementById("impUndo");
   document.getElementById("impUndoMsg").innerHTML =
       '<b>'+put+' dish'+(put===1?"":"es")+'</b> put into the week'
+    + (labelSet ? ', dated <b>'+esc(labelSet)+'</b>' : '')
     + (locked ? ' &mdash; '+locked+' locked slot'+(locked===1?"":"s")+' left alone' : '');
   bar.hidden = false;
   clearTimeout(impUndoBar.t);
@@ -5799,7 +5855,8 @@ function impUndo(){
   if(!IMP_UNDO) return;
   /* put the days back in place rather than swapping the whole state object —
      the money and headcount panels hold a reference to it */
-  DAYS.forEach(d=>{ state.days[d] = IMP_UNDO[d]; });
+  DAYS.forEach(d=>{ state.days[d] = IMP_UNDO.days[d]; });
+  if(state.dateLabel !== IMP_UNDO.dateLabel) impSetLabel(IMP_UNDO.dateLabel);
   IMP_UNDO = null;
   document.getElementById("impUndo").hidden = true;
   syncUI(); render(); persist();
