@@ -112,6 +112,8 @@ button.go:hover{filter:brightness(1.1)}
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
 .legend span{background:#f1f1f4;border:1px solid #e0e0e6;border-radius:5px;padding:2px 7px;font-size:10.5px;font-weight:800;letter-spacing:.3px}
 .slot.isnew textarea{background:#f2fff6;border-color:#9ad9b4}
+.porkwarn{margin:0 10px 10px;background:#fdf0ef;border:1px solid #e8bdb9;color:#8a2b22;
+  border-radius:8px;padding:7px 9px;font-size:10.5px;font-weight:700;line-height:1.4}
 .dayfoot{border-top:1px solid var(--line);padding:7px 10px;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted)}
 .dayfoot label{display:flex;gap:4px;align-items:center;cursor:pointer;font-weight:600}
 .dayfoot input[type=text]{min-width:0;flex:1;font-size:11px;padding:4px 6px}
@@ -434,6 +436,8 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
   padding:8px 10px;font-size:11px;color:#6b5410;line-height:1.5}
 .impextra b{display:block;color:#4a3a0a;margin-bottom:2px}
 .impextra.wide{margin:0}
+.impextra.pork{background:#fdf0ef;border-color:#e8bdb9;color:#8a2b22}
+.impextra.pork b{color:#6d1f18}
 
 /* ---- the way back out ---- */
 .impundo{position:fixed;left:12px;right:12px;bottom:14px;z-index:115;background:#111;color:#fff;
@@ -473,6 +477,7 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
       <label class="f">New ideas <span id="newPctOut">25%</span><input type="range" id="newPct" min="0" max="100" step="5" value="25"></label>
       <label class="f">No-repeat weeks<input type="number" id="cooldown" min="0" max="26" value="6"></label>
       <label class="f">Themes<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="themeLock" checked> Stick to weekday themes</label></label>
+      <label class="f">Pork<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="porkLock" checked> No two pork mains</label></label>
       <label class="f">Footer<select id="barStyle"><option value="qr">Logo + QR codes</option><option value="logo">Logo only</option></select></label>
       <label class="f"><span>&nbsp;</span><button id="impOpen" title="Turn a photo of your written sheet into this week's menu" style="white-space:nowrap">&#128203; Read a written menu</button></label>
     </div>
@@ -1846,10 +1851,34 @@ function recentlyUsed(weeks){
   cut.forEach(h=>Object.values(h.days).forEach(arr=>arr.forEach(v=>{ if(v) set.add(v.trim().toUpperCase()); })));
   return set;
 }
-function pick(day, slotIdx, avoid, newPct){
+/* ---- pork ----
+   A lot of the people served here do not eat pork, so a day must never put it
+   in both main entrees: that would leave them the vegan main and the salad.
+
+   The PORK allergen tag is the signal, never the dish name.  The hot dogs here
+   are beef and so is the short rib, so matching on words would ban dishes that
+   have no pork in them, while missing the two that carry it through baked
+   beans. The tag is already maintained for the printed allergen line. */
+const isPorkAllerg = a => /\bPORK\b/.test(String(a||"").toUpperCase());
+function dishIsPork(name, allerg){
+  if(allerg!=null && String(allerg).trim()) return isPorkAllerg(allerg);
+  const e = DESC[String(name||"").trim().toUpperCase()];
+  return e ? isPorkAllerg(e[1]) : false;
+}
+const MAIN_SLOTS = [0,1];
+/* The two mains as they stand — used for the warnings, not the generator. */
+function porkMains(day){
+  return MAIN_SLOTS.filter(i=>{
+    const sl = state.days[day].slots[i];
+    return sl.t && dishIsPork(sl.t, sl.a);
+  });
+}
+
+function pick(day, slotIdx, avoid, newPct, noPork){
   const onTheme = document.getElementById("themeLock").checked;
   let pool = LIB[day][SLOT_KIND[slotIdx]] || [];
   if(onTheme){ const t = pool.filter(o=>!o.o); if(t.length) pool = t; }
+  if(noPork){ const np = pool.filter(o=>!dishIsPork(o.n, o.a)); if(np.length) pool = np; }
   const free = pool.filter(o=>!avoid.has(o.n.toUpperCase()));
   const usable = free.length ? free : pool.slice();
   const wantNew = Math.random()*100 < newPct;
@@ -1860,6 +1889,7 @@ function pick(day, slotIdx, avoid, newPct){
 }
 function generate(onlyDay, onlySlot){
   const newPct = +document.getElementById("newPct").value;
+  const noPork = document.getElementById("porkLock").checked;
   const avoid = recentlyUsed(+document.getElementById("cooldown").value);
   // never repeat inside the same week either
   DAYS.forEach(d=>state.days[d].slots.forEach(s=>{ if(s.t) avoid.add(s.t.trim().toUpperCase()); }));
@@ -1867,12 +1897,20 @@ function generate(onlyDay, onlySlot){
     if(onlyDay && d!==onlyDay) return;
     const day = state.days[d];
     if(day.closed || day.special) return;
+    /* Whether the one pork main is already spoken for by a main that is not
+       being replaced on this run — a locked one, or one this call is not
+       touching because only a single slot was asked for. */
+    const staying = i => (onlySlot!=null && i!==onlySlot) || day.slots[i].lock;
+    let porkTaken = noPork && MAIN_SLOTS.some(i=>
+      staying(i) && day.slots[i].t && dishIsPork(day.slots[i].t, day.slots[i].a));
     day.slots.forEach((s,i)=>{
       if(onlySlot!=null && i!==onlySlot) return;
       if(s.lock) return;
       if(s.t) avoid.delete(s.t.trim().toUpperCase());   // free the slot we are replacing
-      const o = pick(d,i,avoid,newPct);
+      const isMain = MAIN_SLOTS.indexOf(i)>=0;
+      const o = pick(d,i,avoid,newPct, noPork && isMain && porkTaken);
       s.t = o.n; s.d = o.d||""; s.a = o.a||""; s.isNew = !!o.x;
+      if(isMain && dishIsPork(o.n, o.a)) porkTaken = true;
       avoid.add(o.n.toUpperCase());
     });
   });
@@ -1951,6 +1989,11 @@ function buildGrid(){
       slots.appendChild(wrap);
     });
     card.appendChild(slots);
+    if(porkMains(d).length>1 && !day.closed && !day.special){
+      card.appendChild(el("div","porkwarn",
+        "Both mains are pork. Anyone who does not eat pork is left with the "
+        + "vegan main and the salad."));
+    }
     const foot=el("div","dayfoot");
     const cb=el("label"); const c=el("input"); c.type="checkbox"; c.checked=day.closed;
     c.onchange=()=>{ day.closed=c.checked; if(c.checked) day.special="";
@@ -3811,6 +3854,15 @@ function runPreflight(){
 
   /* Once days can carry their own percentages it is easy to leave one at 95%.
      The panel warns while you are in it; this catches it on the way out. */
+  /* Two pork mains is not a formatting slip, it is a day where a chunk of the
+     site has no entree they will eat.  It belongs with the things to fix. */
+  const porkDays=[];
+  DAYS.forEach(d=>{
+    const day=state.days[d];
+    if(day.closed || day.special) return;
+    if(porkMains(d).length>1) porkDays.push(DAYNAME[d]);
+  });
+
   const badSplit=[];
   PROJ_DAYS.forEach(d=>{
     if(isClosed(d)) return;
@@ -3829,6 +3881,8 @@ function runPreflight(){
   if(empty.length)  stop.push("<b>"+empty.length+" empty slot"+(empty.length===1?"":"s")+":</b> "+list(empty));
   if(dupes.length)  stop.push("<b>"+dupes.length+" dish"+(dupes.length===1?"":"es")
     +" run twice this week:</b> "+list(dupes,4));
+  if(porkDays.length) stop.push("<b>Both mains are pork on "+list(porkDays)
+    +".</b> Anyone who does not eat pork is left with the vegan main and the salad.");
 
   if(noCost.length) note.push("<b>"+noCost.length+" dish"+(noCost.length===1?" has":"es have")
     +" no cost per serving</b>, so "+(noCost.length===1?"it counts":"they count")
@@ -5731,6 +5785,21 @@ function impFillsHtml(r){
        + (al ? '<div class="a">'+esc(al)+'</div>' : '');
 }
 
+/* The two mains as this review currently stands.  Recomputed whenever a
+   dropdown changes, so fixing the clash here clears the warning. */
+function impPorkHtml(day){
+  const pork = IMP.rows.filter(r=>r.day===day && MAIN_SLOTS.indexOf(r.i)>=0
+                                  && r.raw && r.chosen!=="__skip")
+    .filter(r=>{
+      const nm = r.chosen==="__raw" ? r.raw.toUpperCase() : r.chosen;
+      return dishIsPork(nm, impInfo(nm).a);
+    });
+  if(pork.length<2) return "";
+  return '<div class="impextra pork"><b>Both mains are pork.</b> '
+       + 'Anyone who does not eat pork is left with the vegan main and the salad. '
+       + 'Change one here, or let it in and fix it on the day card.</div>';
+}
+
 const IMP_PILL = {ok:"MATCHED", check:"CHECK", "new":"NEW DISH", none:"NOT WRITTEN"};
 
 function impRenderReview(){
@@ -5782,6 +5851,7 @@ function impRenderReview(){
          + '</div>';
     });
     h += '</div>';
+    if(day!=="sat") h += '<div class="porkbox" data-day="'+day+'">'+impPorkHtml(day)+'</div>';
     if(extra){
       h += '<div class="impextra"><b>Not placed &mdash; '
          + (day==="sat" ? "the Saturday strip only has three" : "only four slots a day")
@@ -5806,6 +5876,8 @@ function impRenderReview(){
       r.chosen = sel.value;
       box.querySelector(".pick .face").textContent = impFaceOf(r);
       box.querySelector(".fills").innerHTML = impFillsHtml(r);
+      const pb = wrap.querySelector('.porkbox[data-day="'+r.day+'"]');
+      if(pb) pb.innerHTML = impPorkHtml(r.day);
     };
   });
 }
