@@ -5456,19 +5456,21 @@ const IMP_SALAD    = /\bSALADS?\b/;
 const IMP_NOTSALAD = /\b(WRAP|SUB|SANDWICH|PITA|BURRITO|TACO|TACOS|ROLL|MELT|BOWL|PLATTER)\b/;
 const IMP_VEGAN    = /\b(VEGAN|VEGGIE|VEGGIES|VEGETABLE|VEGETARIAN|IMPOSSIBLE|FALAFEL|EGGPLANT|TOFU|PLANT|PRIMAVERA|HUMMUS)\b/;
 
-function impPlace(items){
-  const slots = [null,null,null,null];
+function impPlace(items, n){
+  n = n || 4;                       /* weekdays four, the Saturday strip three */
+  const slots = new Array(n).fill(null);
   const left  = items.slice();
   const up = s => String(s).toUpperCase();
+  const saladAt = n-1, veganAt = n-2;
 
   for(let i=left.length-1;i>=0;i--){
     const t = up(left[i]);
-    if(IMP_SALAD.test(t) && !IMP_NOTSALAD.test(t)){ slots[3] = left.splice(i,1)[0]; break; }
+    if(IMP_SALAD.test(t) && !IMP_NOTSALAD.test(t)){ slots[saladAt] = left.splice(i,1)[0]; break; }
   }
   for(let i=left.length-1;i>=0;i--){
-    if(IMP_VEGAN.test(up(left[i]))){ slots[2] = left.splice(i,1)[0]; break; }
+    if(IMP_VEGAN.test(up(left[i]))){ slots[veganAt] = left.splice(i,1)[0]; break; }
   }
-  [0,1,2,3].forEach(i=>{ if(slots[i]==null && left.length) slots[i] = left.shift(); });
+  for(let i=0;i<n;i++){ if(slots[i]==null && left.length) slots[i] = left.shift(); }
   return {slots, extra:left};
 }
 
@@ -5571,6 +5573,13 @@ function impReflow(items, pool){
 }
 
 
+/* Saturday rides along with the weekdays, but it is a three-slot strip kept
+   on its own panel rather than a day in state.days. */
+const IMP_DAYS = DAYS.concat(["sat"]);
+const IMP_SAT_LABEL = ["#1 Main", "#2 \u2014 Vegan main & vegetarian side", "#3 \u2014 Salad"];
+const impLabelFor = (day,i) => day==="sat" ? IMP_SAT_LABEL[i] : SLOT_LABEL[i];
+const impThemeFor = day => day==="sat" ? "FIXED STRIP" : (LIB[day].label||"");
+
 /* ---- the dishes a written line could mean ---- */
 function impPool(day){
   const seen=new Set(), out=[];
@@ -5627,11 +5636,11 @@ function impRead(){
   const rows = [];
   let counts = {read:0, ok:0, check:0, fresh:0};
 
-  DAYS.forEach(day=>{
+  IMP_DAYS.forEach(day=>{
     const got = parsed.days[day];
     const pool = impPool(day);
     const items = impReflow(got.items, pool);
-    const placed = impPlace(items);
+    const placed = impPlace(items, day==="sat" ? 3 : 4);
     placed.slots.forEach((raw,i)=>{
       if(!raw){ rows.push({day:day, i:i, raw:"", st:"none", chosen:"__skip", why:"", alts:[]}); return; }
       const m = impMatch(raw, pool);
@@ -5653,8 +5662,7 @@ function impRead(){
   }
 
   IMP = {rows:rows, counts:counts, closed:parsed.days, loose:parsed.loose,
-         label:parsed.label ? impTidyLabel(parsed.label) : null,
-         sat:parsed.days.sat.items.slice()};
+         label:parsed.label ? impTidyLabel(parsed.label) : null};
   impStep(2);
   impRenderReview();
   document.getElementById("impBody").scrollTop = 0;
@@ -5738,13 +5746,14 @@ function impRenderReview(){
   const wrap = document.getElementById("impCards");
   wrap.innerHTML = "";
 
-  DAYS.forEach(day=>{
+  IMP_DAYS.forEach(day=>{
     const rows = IMP.rows.filter(r=>r.day===day && r.i>=0);
     const extra = IMP.rows.find(r=>r.day===day && r.i===-1);
     const wrote = rows.some(r=>r.raw);
     const shut = !!(IMP.closed[day] && IMP.closed[day].closed);
     const card = el("div","impday");
-    let h = '<h3>'+DAYNAME[day]+'</h3><div class="theme">'+esc(LIB[day].label||"")+'</div>';
+    let h = '<h3>'+(day==="sat"?"SAT":DAYNAME[day])+'</h3>'
+          + '<div class="theme">'+esc(impThemeFor(day))+'</div>';
     if(shut && !wrote){
       h += '<div class="slots"><div class="shut">You wrote CLOSED, so this day will be marked closed.</div></div>';
       card.innerHTML = h; wrap.appendChild(card); return;
@@ -5756,9 +5765,9 @@ function impRenderReview(){
     if(shut) h += '<div class="slots" style="padding-bottom:0"><div class="shut">You wrote CLOSED, so this day will be marked closed.</div></div>';
     h += '<div class="slots">';
     rows.forEach(r=>{
-      const locked = state.days[day].slots[r.i].lock;
+      const locked = day!=="sat" && state.days[day].slots[r.i].lock;
       h += '<div class="impslot '+r.st+(locked?" locked":"")+'" data-day="'+day+'" data-i="'+r.i+'">'
-         +   '<div class="lab"><span class="l">'+esc(SLOT_LABEL[r.i])+'</span>'
+         +   '<div class="lab"><span class="l">'+esc(impLabelFor(day,r.i))+'</span>'
          +     '<span class="pill '+r.st+'">'+(locked?"LOCKED":IMP_PILL[r.st])+'</span></div>';
       if(!r.raw){
         h += '<div class="nothing">Nothing written here &mdash; the slot stays as it is.</div></div>';
@@ -5774,20 +5783,15 @@ function impRenderReview(){
     });
     h += '</div>';
     if(extra){
-      h += '<div class="impextra"><b>Not placed &mdash; only four slots a day:</b> '
+      h += '<div class="impextra"><b>Not placed &mdash; '
+         + (day==="sat" ? "the Saturday strip only has three" : "only four slots a day")
+         + ':</b> '
          + extra.extra.map(x=>esc(x)).join(" &middot; ") + '</div>';
     }
     card.innerHTML = h;
     wrap.appendChild(card);
   });
 
-  if(IMP.sat && IMP.sat.length){
-    const d = el("div","impextra wide");
-    d.innerHTML = '<b>Saturday is left alone.</b> It is the fixed strip you set on the '
-                + 'Saturday panel, so the import does not touch it. You wrote: '
-                + IMP.sat.map(x=>esc(x)).join(" &middot; ");
-    wrap.appendChild(d);
-  }
   if(IMP.loose && IMP.loose.length){
     const d = el("div","impextra wide");
     d.innerHTML = '<b>No day heading above these, so they were skipped:</b> '
@@ -5808,18 +5812,27 @@ function impRenderReview(){
 
 /* Step 2 -> the week itself. */
 function impApply(){
-  IMP_UNDO = {days: JSON.parse(JSON.stringify(state.days)), dateLabel: state.dateLabel};
+  IMP_UNDO = {days: JSON.parse(JSON.stringify(state.days)),
+              sat:  JSON.parse(JSON.stringify(state.sat)),
+              dateLabel: state.dateLabel};
   let put=0, skippedLock=0;
   IMP.rows.forEach(r=>{
     if(r.i<0 || !r.raw || r.chosen==="__skip") return;
-    const slot = state.days[r.day].slots[r.i];
-    if(slot.lock){ skippedLock++; return; }
     const name = (r.chosen==="__raw" ? r.raw : r.chosen).toUpperCase();
     const inf = impInfo(name);
+    if(r.day==="sat"){
+      const n = r.i+1;
+      state.sat["m"+n] = name; state.sat["d"+n] = inf.d; state.sat["a"+n] = inf.a;
+      put++; return;
+    }
+    const slot = state.days[r.day].slots[r.i];
+    if(slot.lock){ skippedLock++; return; }
     slot.t = name; slot.d = inf.d; slot.a = inf.a; slot.isNew = false;
     put++;
   });
   DAYS.forEach(d=>{ if(IMP.closed[d] && IMP.closed[d].closed) state.days[d].closed = true; });
+  if(IMP.closed.sat && IMP.closed.sat.closed) state.sat.closed = true;
+  impSyncSat();
 
   let labelSet = null;
   const li = document.getElementById("impLabel");
@@ -5830,6 +5843,24 @@ function impApply(){
   syncUI(); render(); persist();
   impClose();
   impUndoBar(put, skippedLock, labelSet);
+}
+
+/* buildGrid() redraws the weekday cards, but the Saturday strip lives in a
+   panel that is only filled in once at start-up — so it is written back here. */
+function impSyncSat(){
+  [1,2,3].forEach(i=>{
+    const nm=document.getElementById("sat"+i), de=document.getElementById("satd"+i),
+          ag=document.getElementById("sata"+i), cs=document.getElementById("satc"+i);
+    if(nm) nm.value = state.sat["m"+i]||"";
+    if(de) de.value = state.sat["d"+i]||"";
+    if(ag) ag.value = state.sat["a"+i]||"";
+    if(cs){ const c0 = metaFor(state.sat["m"+i]).c; cs.value = c0 ? c0 : ""; }
+  });
+  const sc=document.getElementById("satClosed");
+  if(sc && sc.checked !== !!state.sat.closed){
+    sc.checked = !!state.sat.closed;
+    buildHeadGrid(); buildRateGrid();   /* a closed Saturday drops out of both */
+  }
 }
 
 /* Going through the field's own handler keeps the header chip, the canvas and
@@ -5856,6 +5887,7 @@ function impUndo(){
   /* put the days back in place rather than swapping the whole state object —
      the money and headcount panels hold a reference to it */
   DAYS.forEach(d=>{ state.days[d] = IMP_UNDO.days[d]; });
+  state.sat = IMP_UNDO.sat; impSyncSat();
   if(state.dateLabel !== IMP_UNDO.dateLabel) impSetLabel(IMP_UNDO.dateLabel);
   IMP_UNDO = null;
   document.getElementById("impUndo").hidden = true;
