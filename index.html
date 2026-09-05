@@ -160,8 +160,9 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .hist th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 .hist td.wk{white-space:nowrap;font-weight:700}
 .note{font-size:12px;color:var(--muted);margin:8px 0 0}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:22px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:22px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
 .toast.show{opacity:1}
+@media(min-width:900px){.toast{bottom:20px}}
 .headgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:12px}
 .rategrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
 @media(max-width:900px){.headgrid{grid-template-columns:repeat(3,1fr)}.rategrid{grid-template-columns:repeat(2,1fr)}}
@@ -443,7 +444,7 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
 .impextra.pork b{color:#6d1f18}
 
 /* ---- the way back out ---- */
-.impundo{position:fixed;left:12px;right:12px;bottom:14px;z-index:115;background:#111;color:#fff;
+.impundo{position:fixed;left:12px;right:12px;bottom:76px;z-index:115;background:#111;color:#fff;
   border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
   box-shadow:0 8px 28px rgba(0,0,0,.3)}
 .impundo[hidden]{display:none}
@@ -6307,5 +6308,91 @@ init();
 
 
 </script>
+<!-- ============================================================ SHELL v1
+     The bar that makes the separate apps feel like one product.  Paste this
+     block, unchanged, immediately before </body> in every app.  It is
+     self-contained on purpose: no shared file to fetch, so one app going wrong
+     cannot take the others with it.
+
+     To add it to another app, change only ACTIVE below to that app's key.
+     Canonical copy: ~/Desktop/claude/shell/shell-snippet.html
+     ============================================================ -->
+<style>
+.mmshell{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#fff;
+  border-top:1px solid #e3e3e6;display:grid;grid-template-columns:repeat(5,1fr);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow:0 -2px 14px rgba(0,0,0,.06);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.mmshell a,.mmshell button{display:flex;flex-direction:column;align-items:center;gap:3px;
+  text-decoration:none;color:#6b6b76;font-size:9.5px;font-weight:800;letter-spacing:.3px;
+  padding:3px 0;background:none;border:0;cursor:pointer;font-family:inherit}
+.mmshell svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.mmshell .on{color:#B5191C}
+/* On a laptop a full-width bottom bar looks like a mistake, so it becomes a
+   floating pill instead of disappearing. */
+@media(min-width:900px){
+  .mmshell{left:50%;transform:translateX(-50%);right:auto;bottom:18px;width:auto;
+    grid-template-columns:repeat(5,86px);border:1px solid #e3e3e6;border-radius:16px;
+    padding:8px 6px;box-shadow:0 10px 30px rgba(0,0,0,.16)}
+}
+.mmsheet{position:fixed;inset:0;z-index:61;background:rgba(10,10,13,.5);display:none;
+  align-items:flex-end;justify-content:center}
+.mmsheet.on{display:flex}
+.mmsheet .in{background:#fff;width:100%;max-width:460px;border-radius:16px 16px 0 0;
+  padding:8px 0 calc(8px + env(safe-area-inset-bottom));max-height:70vh;overflow:auto}
+@media(min-width:900px){ .mmsheet{align-items:center} .mmsheet .in{border-radius:16px} }
+.mmsheet h4{margin:6px 16px 8px;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#6b6b76}
+.mmsheet a{display:block;padding:12px 16px;text-decoration:none;
+  color:#111;font-size:14px;font-weight:700;border-top:1px solid #f0f0f3}
+.mmsheet a small{display:block;font-size:11px;color:#6b6b76;font-weight:600;margin-top:2px}
+.mmsheet .close{width:100%;padding:13px;border:0;background:none;color:#6b6b76;font-weight:800;
+  font-size:13px;border-top:1px solid #f0f0f3;cursor:pointer}
+body{padding-bottom:62px}
+@media(min-width:900px){ body{padding-bottom:0} }
+</style>
+<nav class="mmshell" id="mmshell"></nav>
+<div class="mmsheet" id="mmsheet"><div class="in">
+  <h4>Everything else</h4>
+  <a href="https://jaylaantaylor-boop.github.io/trucks-owner-dashboard2/">Owner dashboard<small>All four businesses in one screen</small></a>
+  <a href="https://jaylaantaylor-boop.github.io/kitchen-stock/">Kitchen stock<small>The kitchen's own count</small></a>
+  <a href="https://jaylaantaylor-boop.github.io/panatieris-pizza/">Panatieri's Pizza<small>Stock and price comparison</small></a>
+  <a href="https://jaylaantaylor-boop.github.io/panatieris-on-wheels/">Mamma Mia Truck<small>Stock on its own</small></a>
+  <a href="https://jaylaantaylor-boop.github.io/montanas-breakfast-truck/">Montana's Breakfast<small>Stock on its own</small></a>
+  <button class="close" id="mmclose">Close</button>
+</div></div>
+<script>
+(function(){
+  var ACTIVE = "menus";     /* <-- the only line that changes per app */
+  var I = {
+    home:  '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/>',
+    menus: '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    stock: '<path d="M3 8.5 12 4l9 4.5-9 4.5z"/><path d="M3 8.5v7L12 20l9-4.5v-7"/><path d="M12 13v7"/>',
+    money: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M9.5 9.5h4a1.9 1.9 0 0 1 0 3.8h-3a1.9 1.9 0 0 0 0 3.8h4"/>',
+    more:  '<circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/>'
+  };
+  var TABS = [
+    {k:"home",  t:"Home",  u:"https://jaylaantaylor-boop.github.io/"},
+    {k:"menus", t:"Menus", u:"https://jaylaantaylor-boop.github.io/menu-generator/"},
+    {k:"stock", t:"Stock", u:"https://jaylaantaylor-boop.github.io/all-trucks/"},
+    {k:"money", t:"Money", u:"https://jaylaantaylor-boop.github.io/money/"},
+    {k:"more",  t:"More"}
+  ];
+  var nav = document.getElementById("mmshell");
+  nav.innerHTML = TABS.map(function(t){
+    var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">'+I[t.k]+'</svg>';
+    var cls = t.k===ACTIVE ? ' class="on"' : '';
+    return t.u ? '<a href="'+t.u+'"'+cls+'>'+svg+t.t+'</a>'
+               : '<button type="button" id="mmmore"'+cls+'>'+svg+t.t+'</button>';
+  }).join("");
+  var sheet = document.getElementById("mmsheet");
+  var open = function(on){ sheet.classList.toggle("on", on); };
+  document.getElementById("mmmore").onclick = function(){ open(true); };
+  document.getElementById("mmclose").onclick = function(){ open(false); };
+  sheet.addEventListener("click", function(e){ if(e.target===sheet) open(false); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") open(false); });
+})();
+</script>
+<!-- ========================================================= END SHELL v1 -->
+
 </body>
 </html>
