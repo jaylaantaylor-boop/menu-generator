@@ -112,6 +112,8 @@ button.go:hover{filter:brightness(1.1)}
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
 .legend span{background:#f1f1f4;border:1px solid #e0e0e6;border-radius:5px;padding:2px 7px;font-size:10.5px;font-weight:800;letter-spacing:.3px}
 .slot.isnew textarea{background:#f2fff6;border-color:#9ad9b4}
+.varywarn{margin:0 10px 10px;background:#fff8e9;border:1px solid #ecd9a8;color:#6b5410;
+  border-radius:8px;padding:7px 9px;font-size:10.5px;font-weight:700;line-height:1.4}
 .porkwarn{margin:0 10px 10px;background:#fdf0ef;border:1px solid #e8bdb9;color:#8a2b22;
   border-radius:8px;padding:7px 9px;font-size:10.5px;font-weight:700;line-height:1.4}
 .dayfoot{border-top:1px solid var(--line);padding:7px 10px;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted)}
@@ -436,6 +438,7 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
   padding:8px 10px;font-size:11px;color:#6b5410;line-height:1.5}
 .impextra b{display:block;color:#4a3a0a;margin-bottom:2px}
 .impextra.wide{margin:0}
+.impextra.vary{background:#fff8e9;border-color:#ecd9a8;color:#6b5410}
 .impextra.pork{background:#fdf0ef;border-color:#e8bdb9;color:#8a2b22}
 .impextra.pork b{color:#6d1f18}
 
@@ -478,6 +481,7 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
       <label class="f">No-repeat weeks<input type="number" id="cooldown" min="0" max="26" value="6"></label>
       <label class="f">Themes<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="themeLock" checked> Stick to weekday themes</label></label>
       <label class="f">Pork<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="porkLock" checked> No two pork mains</label></label>
+      <label class="f">Variety<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="varyLock" checked> Two different proteins</label></label>
       <label class="f">Footer<select id="barStyle"><option value="qr">Logo + QR codes</option><option value="logo">Logo only</option></select></label>
       <label class="f"><span>&nbsp;</span><button id="impOpen" title="Turn a photo of your written sheet into this week's menu" style="white-space:nowrap">&#128203; Read a written menu</button></label>
     </div>
@@ -779,7 +783,10 @@ const TENANT = {
   week: {
     days:     ["mon","tue","wed","thu","fri"],
     names:    {mon:"MON",tue:"TUE",wed:"WED",thu:"THU",fri:"FRI",sat:"SAT"},
-    letters:  {mon:"M",tue:"T",wed:"W",thu:"T",fri:"F",sat:"S"},
+    /* Two letters where one is ambiguous: M/T/W/T/F put Tuesday and Thursday
+     under the same mark on the order sheet, so "Mixed Greens (M T T)" could
+     not be read. */
+  letters:  {mon:"M",tue:"TU",wed:"W",thu:"TH",fri:"F",sat:"SA"},
     slots: [
       {kind:"mains",  key:"e1",    short:"#1", label:"#1"},
       {kind:"mains",  key:"e2",    short:"#2", label:"#2"},
@@ -801,6 +808,41 @@ const TENANT = {
             side:100, chips:100, dessert:100, fruit:100, drinks:100, buffer:0},
     money: {price:22, labor:0, other:0}                 /* charged per person */
   },
+
+  /* How a dish name is read as a protein, for the variety rule.  This is
+     tenant knowledge, not general truth: the hot dogs on this contract are
+     beef, so they are listed under beef.  Checked in order, so a
+     "buffalo chicken cheesesteak" reads as chicken, not beef.  Anything that
+     matches nothing is left unknown and never blocks a pick. */
+  proteins: [
+    ["chicken", /\b(CHICKEN|CHIX|CHKN|POLLO|NUGGETS?|WINGS?|TENDERS?|CORDON BLEU|FRANCESE|MILANESE)\b/],
+    ["turkey",  /\bTURKEY\b/],
+    ["seafood", /\b(SHRIMP|SALMON|TUNA|COD|FISH|CRAB|SCALLOPS?)\b/],
+    ["beef",    /\b(BEEF|STEAKS?|BURGERS?|CHEESEBURGERS?|HAMBURGERS?|BRISKET|PASTRAMI|CORNED|BARBACOA|ASADA|BIRRIA|QUESABIRRIA|MEATLOAF|MEATBALLS?|MEATSAUCE|MEAT SAUCE|PATTY MELT|SLOPPY JOE|SHORT RIBS?|POT ROAST|CHEESESTEAK|GYRO|REUBEN|FRENCH DIP|SHEPHERD|HOT ?DOGS?|FRANKFURTER)\b/],
+    ["plant",   /\b(VEGAN|VEGGIES?|VEGETABLES?|VEGETARIAN|IMPOSSIBLE|FALAFEL|TOFU|CHICKPEAS?|EGGPLANT|PLANT|HUMMUS|PRIMAVERA|PANZANELLA)\b/],
+    ["pork",    /\b(PORK|SAUSAGE|BACON|HAM|RIBS?|CARNITAS|PEPPERONI|PROSCIUTTO|CAPICOLA|PORCHETTA)\b/]
+  ],
+  /* A name that says IMPOSSIBLE is plant however much it says burger. */
+  proteinOverride: [["plant", /\bIMPOSSIBLE\b/]],
+
+  /* What gets handed out alongside the food.  Nothing here comes from the
+     menu, so the order sheet never used to mention it — and it is what a site
+     actually runs out of.  `per` is per person served; leave it off and the
+     line prints with an empty box to fill in, rather than inventing a ratio. */
+  consumables: [
+    {name:"Clamshells / trays", per:1},
+    {name:"Cutlery sets",       per:1},
+    {name:"Napkins",            per:2},
+    {name:"Cups",               per:1},
+    {name:"Drinks",             per:1},
+    {name:"Foil pans"},
+    {name:"Sterno"},
+    {name:"Ice"},
+    {name:"Gloves"},
+    {name:"Sanitizer / wipes"},
+    {name:"Trash bags"},
+    {name:"Condiments"}
+  ],
 
   /* The allergen vocabulary offered in the app and printed on the sheet. */
   allergens: ["GLUTEN","DAIRY","EGG","SOY","FISH","SHELLFISH",
@@ -1959,6 +2001,34 @@ function dishIsPork(name, allerg){
   return e ? isPorkAllerg(e[1]) : false;
 }
 const MAIN_SLOTS = TENANT.week.mainSlots;
+
+/* ---- protein, for variety ----
+   Different job from dishIsPork().  That one answers "can this person eat it",
+   from the allergen tag, and has to be right.  This one answers "have we
+   already served this today", from the dish name, and is allowed to shrug:
+   an unknown protein never blocks anything.  Pork keeps its own rule because
+   the tag is reliable and the reason is dietary, not variety. */
+function dishProtein(name, allerg){
+  const t = " " + String(name||"").toUpperCase().replace(/[^A-Z0-9]+/g," ") + " ";
+  for(const [k,re] of TENANT.proteinOverride) if(re.test(t)) return k;
+  for(const [k,re] of TENANT.proteins) if(re.test(t)) return k;
+  if(/\bPORK\b/.test(String(allerg||"").toUpperCase())) return "pork";  /* al pastor, italian hero */
+  return "";
+}
+/* The proteins already on a day's mains, ignoring the ones we could not read. */
+function mainProteins(day){
+  const out = {};
+  MAIN_SLOTS.forEach(i=>{
+    const sl = state.days[day].slots[i];
+    const p = sl.t ? dishProtein(sl.t, sl.a) : "";
+    if(p) out[p] = (out[p]||0) + 1;
+  });
+  return out;
+}
+function repeatedProtein(day){
+  const p = mainProteins(day);
+  return Object.keys(p).find(k=>p[k]>1) || "";
+}
 /* The two mains as they stand — used for the warnings, not the generator. */
 function porkMains(day){
   return MAIN_SLOTS.filter(i=>{
@@ -1967,11 +2037,15 @@ function porkMains(day){
   });
 }
 
-function pick(day, slotIdx, avoid, newPct, noPork){
+function pick(day, slotIdx, avoid, newPct, noPork, avoidProtein){
   const onTheme = document.getElementById("themeLock").checked;
   let pool = LIB[day][SLOT_KIND[slotIdx]] || [];
   if(onTheme){ const t = pool.filter(o=>!o.o); if(t.length) pool = t; }
   if(noPork){ const np = pool.filter(o=>!dishIsPork(o.n, o.a)); if(np.length) pool = np; }
+  if(avoidProtein){
+    const np = pool.filter(o=>{ const pr = dishProtein(o.n, o.a); return !pr || pr!==avoidProtein; });
+    if(np.length) pool = np;   /* if the day has nothing else, variety loses to having a menu */
+  }
   const free = pool.filter(o=>!avoid.has(o.n.toUpperCase()));
   const usable = free.length ? free : pool.slice();
   const wantNew = Math.random()*100 < newPct;
@@ -1983,6 +2057,7 @@ function pick(day, slotIdx, avoid, newPct, noPork){
 function generate(onlyDay, onlySlot){
   const newPct = +document.getElementById("newPct").value;
   const noPork = document.getElementById("porkLock").checked;
+  const vary   = document.getElementById("varyLock").checked;
   const avoid = recentlyUsed(+document.getElementById("cooldown").value);
   // never repeat inside the same week either
   DAYS.forEach(d=>state.days[d].slots.forEach(s=>{ if(s.t) avoid.add(s.t.trim().toUpperCase()); }));
@@ -1996,14 +2071,25 @@ function generate(onlyDay, onlySlot){
     const staying = i => (onlySlot!=null && i!==onlySlot) || day.slots[i].lock;
     let porkTaken = noPork && MAIN_SLOTS.some(i=>
       staying(i) && day.slots[i].t && dishIsPork(day.slots[i].t, day.slots[i].a));
+    /* the protein of a main that is staying put, so the one being replaced
+       does not land on it */
+    let usedProtein = "";
+    if(vary) MAIN_SLOTS.forEach(i=>{
+      if(staying(i) && day.slots[i].t){
+        const pr = dishProtein(day.slots[i].t, day.slots[i].a);
+        if(pr) usedProtein = pr;
+      }
+    });
     day.slots.forEach((s,i)=>{
       if(onlySlot!=null && i!==onlySlot) return;
       if(s.lock) return;
       if(s.t) avoid.delete(s.t.trim().toUpperCase());   // free the slot we are replacing
       const isMain = MAIN_SLOTS.indexOf(i)>=0;
-      const o = pick(d,i,avoid,newPct, noPork && isMain && porkTaken);
+      const o = pick(d,i,avoid,newPct, noPork && isMain && porkTaken,
+                     vary && isMain ? usedProtein : "");
       s.t = o.n; s.d = o.d||""; s.a = o.a||""; s.isNew = !!o.x;
       if(isMain && dishIsPork(o.n, o.a)) porkTaken = true;
+      if(isMain && vary){ const pr = dishProtein(o.n, o.a); if(pr) usedProtein = pr; }
       avoid.add(o.n.toUpperCase());
     });
   });
@@ -2086,6 +2172,11 @@ function buildGrid(){
       card.appendChild(el("div","porkwarn",
         "Both mains are pork. Anyone who does not eat pork is left with the "
         + "vegan main and the salad."));
+    }
+    const rep = (!day.closed && !day.special) ? repeatedProtein(d) : "";
+    if(rep && porkMains(d).length<2){
+      card.appendChild(el("div","varywarn",
+        "Both mains are "+rep+". A day goes down better with two different proteins."));
     }
     const foot=el("div","dayfoot");
     const cb=el("label"); const c=el("input"); c.type="checkbox"; c.checked=day.closed;
@@ -2581,25 +2672,53 @@ const CAT_ORDER = CATS.map(c=>c[0]).concat("OTHER");
 const DAYLTR = TENANT.week.letters;
 function weekIngredients(){
   const bag = new Map();
-  const add=(dayKey, desc)=>{
+  /* `portions` is how many of that dish are being made, so an ingredient can
+     carry a real number instead of a blank box.  It is portions, not pounds —
+     the library holds no yields, and a made-up weight is worse than none. */
+  const add=(dayKey, desc, portions)=>{
     if(!desc) return;
     splitDescription(desc).forEach(p=>{
       const n = normIngredient(p); if(!n) return;
-      if(!bag.has(n)) bag.set(n,{name:n, days:new Set(), uses:0});
-      const e=bag.get(n); e.days.add(dayKey); e.uses++;
+      if(!bag.has(n)) bag.set(n,{name:n, days:new Set(), uses:0, portions:0, byDay:{}});
+      const e=bag.get(n);
+      e.days.add(dayKey); e.uses++;
+      if(portions>0){ e.portions += portions; e.byDay[dayKey] = (e.byDay[dayKey]||0) + portions; }
     });
   };
   DAYS.forEach(d=>{
     const day=state.days[d];
     if(day.closed||day.special) return;
-    day.slots.forEach(s=>add(d, s.d));
+    const pj = dayProjection(d);
+    const counts = (pj && pj.p) ? pj.p.counts : {};
+    day.slots.forEach((s,i)=>add(d, s.d, counts[ENTREE_SLOT_KEYS[i]] || 0));
   });
-  if(!state.sat.closed) [1,2,3].forEach(i=>add("sat", state.sat["d"+i]));
+  if(!state.sat.closed){
+    const pj = dayProjection("sat");
+    const counts = (pj && pj.p) ? pj.p.counts : {};
+    const satKeys = ["e1","veg","salad"];            /* the strip's three slots */
+    [1,2,3].forEach(i=>add("sat", state.sat["d"+i], counts[satKeys[i-1]] || 0));
+  }
 
   const groups={}; CAT_ORDER.forEach(c=>groups[c]=[]);
   [...bag.values()].forEach(e=>{ groups[catFor(e.name)].push(e); });
   CAT_ORDER.forEach(c=>groups[c].sort((a,b)=>b.uses-a.uses || a.name.localeCompare(b.name)));
   return {groups, total:bag.size};
+}
+
+/* Everyone served across the open days — what the per-person consumables
+   are counted against. */
+function weekPeople(){
+  return PROJ_DAYS.reduce((n,d)=>{
+    const pj = dayProjection(d);
+    return n + (pj && !pj.closed ? (pj.heads||0) : 0);
+  }, 0);
+}
+function consumableRows(){
+  const people = weekPeople();
+  return TENANT.consumables.map(c=>({
+    name: c.name,
+    n: (c.per && people) ? Math.ceil(c.per * people) : null
+  }));
 }
 
 /* ================= order sheet renderer ================= */
@@ -2627,6 +2746,10 @@ function renderSheet(){
   const blocks=[];
   CAT_ORDER.forEach(cat=>{ const items=groups[cat];
     if(items.length) blocks.push({cat, items, h: HEAD + items.length*ROW + GAP}); });
+  /* None of this comes off the menu, and it is what a site runs out of. */
+  const cons = consumableRows();
+  if(cons.length) blocks.push({cat:"NON-FOOD", items:cons, consumable:true,
+                               h: HEAD + cons.length*ROW + GAP});
   const totalH = blocks.reduce((a,b)=>a+b.h,0), target = totalH/3;
   const cols=[[],[],[]]; let ci=0, acc=0;
   blocks.forEach(b=>{
@@ -2647,26 +2770,48 @@ function renderSheet(){
       c.fillText("AMOUNT", x+OS_COLW-104, y+26);
       y += HEAD;
 
+      if(b.consumable){
+        b.items.forEach((it,k)=>{
+          if(k%2===0){ c.fillStyle="#F4F4F6"; c.fillRect(x, y-19, OS_COLW, ROW-4); }
+          c.fillStyle=BLK; c.font="700 15px "+FONT; c.textAlign="left";
+          c.fillText(it.name, x+10, y);
+          if(it.n){
+            c.font="700 14px "+FONT; c.fillStyle="#5A5A63"; c.textAlign="right";
+            c.fillText(it.n.toLocaleString(), x+OS_COLW-118, y);
+          }
+          c.strokeStyle="#B8B8C0"; c.lineWidth=1.3;
+          rr(c, x+OS_COLW-102, y-18, 92, 22, 5); c.stroke();
+          y += ROW;
+        });
+        y += GAP;
+        return;
+      }
+
       b.items.forEach((it,k)=>{
         if(k%2===0){ c.fillStyle="#F4F4F6"; c.fillRect(x, y-19, OS_COLW, ROW-4); }
         /* name */
         c.fillStyle=BLK; c.font="700 15px "+FONT; c.textAlign="left";
         let nm=it.name.replace(/\b\w/g,ch=>ch.toUpperCase());
-        while(c.measureText(nm).width > OS_COLW-252) nm=nm.slice(0,-2);
+        while(c.measureText(nm).width > OS_COLW-330) nm=nm.slice(0,-2);
         c.fillText(nm, x+10, y);
-        /* day dots */
-        let dx = x+OS_COLW-236;
+        /* how many portions it has to cover — the number the box is filled from */
+        if(it.portions>0){
+          c.font="700 13px "+FONT; c.fillStyle="#8A8A93"; c.textAlign="right";
+          c.fillText(it.portions.toLocaleString(), x+OS_COLW-262, y);
+        }
+        /* day chips — two letters now, so Tuesday and Thursday differ */
+        let dx = x+OS_COLW-252;
         DAY_KEYS.forEach(dk=>{
           const on = it.days.has(dk);
-          c.font="700 12px "+FONT; c.textAlign="center";
-          if(on){ c.fillStyle=RED; c.beginPath(); c.arc(dx+6, y-4.5, 9, 0, 7); c.fill(); c.fillStyle="#fff"; }
+          c.font="700 11px "+FONT; c.textAlign="center";
+          if(on){ c.fillStyle=RED; rr(c, dx-2, y-14, 22, 19, 6); c.fill(); c.fillStyle="#fff"; }
           else c.fillStyle="#C8C8CE";
-          c.fillText(DAYLTR[dk], dx+6, y);
-          dx += 20;
+          c.fillText(DAYLTR[dk], dx+9, y);
+          dx += 24;
         });
         /* blank amount box */
         c.strokeStyle="#B8B8C0"; c.lineWidth=1.3;
-        rr(c, x+OS_COLW-108, y-18, 98, 22, 5); c.stroke();
+        rr(c, x+OS_COLW-102, y-18, 92, 22, 5); c.stroke();
         y += ROW;
       });
       y += GAP;
@@ -2675,22 +2820,29 @@ function renderSheet(){
 
   /* footer note */
   c.textAlign="left"; c.font="italic 400 17px "+FONT; c.fillStyle="#5A5A63";
-  c.fillText(total+" items for the week. Pulled from the menu descriptions — staples like oil, salt, flour and seasoning are not listed.",
+  c.fillText(total+" items for the week. Numbers are portions to cover, not weights. Pulled from the menu descriptions \u2014 staples like oil, salt, flour and seasoning are not listed.",
              120, 1660);
-  buildSheetText(groups);
+  buildSheetText(groups, cons);
 }
 
-function buildSheetText(groups){
+function buildSheetText(groups, cons){
   let s = "ORDER SHEET  "+state.dateLabel+"\n\n";
   CAT_ORDER.forEach(cat=>{
     const items=groups[cat]; if(!items.length) return;
     s += cat+"\n";
     items.forEach(it=>{
       const d = DAY_KEYS.filter(k=>it.days.has(k)).map(k=>DAYLTR[k]).join(" ");
-      s += "  [ ____ ]  "+it.name.replace(/\b\w/g,ch=>ch.toUpperCase())+"   ("+d+")\n";
+      s += "  [ ____ ]  "+it.name.replace(/\b\w/g,ch=>ch.toUpperCase())
+         + (it.portions>0 ? "   "+it.portions.toLocaleString()+" portions" : "")
+         + "   ("+d+")\n";
     });
     s += "\n";
   });
+  if(cons && cons.length){
+    s += "NON-FOOD\n";
+    cons.forEach(it=>{ s += "  [ ____ ]  "+it.name+(it.n ? "   "+it.n.toLocaleString() : "")+"\n"; });
+    s += "\n";
+  }
   s += "Staples (oil, salt, flour, seasoning) are not listed.\n";
   window.__sheetText = s;
 }
@@ -3552,16 +3704,24 @@ function renderProfit(){
 
   const {days, tot, unpriced} = profitWeek();
   const live = tot.revenue > 0 || tot.cost > 0;
+  /* With a dish still unpriced, food cost is only a floor — so profit and
+     margin are ceilings, not facts.  Say that rather than printing a number
+     that reads as one; a week with nothing priced showed "NET $211,200 (100%)". */
+  const partial = unpriced.length > 0;
+  const atMost  = v => (partial ? "\u2264 " : "") + v;    /* profit, margin  */
+  const atLeast = v => (partial ? "\u2265 " : "") + v;    /* cost            */
   let text = "PROFIT  "+state.dateLabel+"\n\n";
 
   /* five headline tiles across the top */
   const TW=391, TG=27, TY=355, TH=172;
   const tiles=[
     ["REVENUE",     fmtMoney(tot.revenue), BLK,  ""],
-    ["FOOD COST",   fmtMoney(tot.food),    BLK,  live? fmtPct(tot.foodPct)+" of revenue":""],
+    ["FOOD COST",   atLeast(fmtMoney(tot.food)), BLK,
+                    live? atLeast(fmtPct(tot.foodPct))+" of revenue":""],
     ["LABOR + OTHER", fmtMoney(tot.labor+tot.other), BLK, ""],
-    ["NET PROFIT",  fmtMoney(tot.net),     tot.net<0?RED:GREEN, live? fmtPct(tot.margin)+" margin":""],
-    ["PER PERSON",  fmtMoney(tot.netPerHead,true), tot.netPerHead<0?RED:GREEN, "profit each"]
+    ["NET PROFIT",  atMost(fmtMoney(tot.net)), tot.net<0?RED:GREEN,
+                    live? atMost(fmtPct(tot.margin))+" margin":""],
+    ["PER PERSON",  atMost(fmtMoney(tot.netPerHead,true)), tot.netPerHead<0?RED:GREEN, "profit each"]
   ];
   tiles.forEach(([lab,val,col,sub],i)=>{
     const x=120+i*(TW+TG);
@@ -3572,9 +3732,11 @@ function renderProfit(){
     c.fillText(live?val:"—", x+26, TY+104);
     if(sub && live){ c.font="700 15px "+FONT; c.fillStyle="#8A8A93"; c.fillText(sub, x+26, TY+140); }
   });
-  text += "REVENUE "+fmtMoney(tot.revenue)+"  |  FOOD "+fmtMoney(tot.food)
+  text += "REVENUE "+fmtMoney(tot.revenue)+"  |  FOOD "+atLeast(fmtMoney(tot.food))
         + "  |  LABOR+OTHER "+fmtMoney(tot.labor+tot.other)
-        + "  |  NET "+fmtMoney(tot.net)+" ("+fmtPct(tot.margin)+")\n\n";
+        + "  |  NET "+atMost(fmtMoney(tot.net))+" ("+atMost(fmtPct(tot.margin))+")\n\n";
+  if(partial) text += "These are limits, not totals: "+unpriced.length+" dish"
+        + (unpriced.length===1?" has":"es have")+" no cost per serving yet.\n\n";
 
   /* day-by-day table */
   const TOP=600;
@@ -3589,13 +3751,13 @@ function renderProfit(){
   const ROWS=[
     ["PEOPLE",      d=>d.closed?null:d.heads,          v=>String(v),                false],
     ["REVENUE",     d=>d.closed?null:d.revenue,        v=>fmtMoney(v),              false],
-    ["FOOD COST",   d=>d.closed?null:d.food,           v=>fmtMoney(v),              false],
+    ["FOOD COST",   d=>d.closed?null:d.food,           v=>atLeast(fmtMoney(v)),     false],
     ["LABOR",       d=>d.closed?null:d.labor,          v=>fmtMoney(v),              false],
     ["OTHER",       d=>d.closed?null:d.other,          v=>fmtMoney(v),              false],
-    ["TOTAL COST",  d=>d.closed?null:d.cost,           v=>fmtMoney(v),              true ],
-    ["NET PROFIT",  d=>d.closed?null:d.net,            v=>fmtMoney(v),              true ],
-    ["MARGIN",      d=>d.closed||!d.revenue?null:d.net/d.revenue*100, v=>fmtPct(v), false],
-    ["PROFIT / HEAD", d=>d.closed||!d.heads?null:d.net/d.heads, v=>fmtMoney(v,true), false]
+    ["TOTAL COST",  d=>d.closed?null:d.cost,           v=>atLeast(fmtMoney(v)),     true ],
+    ["NET PROFIT",  d=>d.closed?null:d.net,            v=>atMost(fmtMoney(v)),      true ],
+    ["MARGIN",      d=>d.closed||!d.revenue?null:d.net/d.revenue*100, v=>atMost(fmtPct(v)), false],
+    ["PROFIT / HEAD", d=>d.closed||!d.heads?null:d.net/d.heads, v=>atMost(fmtMoney(v,true)), false]
   ];
   let y = TOP + 46;
   ROWS.forEach(([lab,get,fmt,strong],ri)=>{
@@ -3638,7 +3800,7 @@ function renderProfit(){
   /* break-even and the unpriced-dish caveat */
   let ny = y + 34;
   c.textAlign="left";
-  if(live && tot.heads){
+  if(live && tot.heads && !partial){
     const head="Break even at "+fmtMoney(tot.perHead,true)+" a head.";
     c.font="700 19px "+FONT; c.fillStyle=BLK;
     c.fillText(head, 134, ny);
@@ -3646,6 +3808,16 @@ function renderProfit(){
     c.font="400 19px "+FONT; c.fillStyle="#5A5A63";
     c.fillText("You are charging "+fmtMoney(moneyNow().price,true)+" a head.", 134+bw+14, ny);
     text += "Break even at "+fmtMoney(tot.perHead,true)+" a head; charging "+fmtMoney(moneyNow().price,true)+".\n";
+    ny += 40;
+  } else if(live && tot.heads && partial){
+    const head="Break even: not known yet.";
+    c.font="700 19px "+FONT; c.fillStyle=BLK; c.fillText(head, 134, ny);
+    const bw=c.measureText(head).width;
+    c.font="400 19px "+FONT; c.fillStyle="#5A5A63";
+    c.fillText("Price every dish and it will show here. You are charging "
+      +fmtMoney(moneyNow().price,true)+" a head.", 134+bw+14, ny);
+    text += "Break even: not known yet (some dishes unpriced); charging "
+      +fmtMoney(moneyNow().price,true)+".\n";
     ny += 40;
   }
   /* ---- where the food money goes ---- */
@@ -3949,11 +4121,17 @@ function runPreflight(){
      The panel warns while you are in it; this catches it on the way out. */
   /* Two pork mains is not a formatting slip, it is a day where a chunk of the
      site has no entree they will eat.  It belongs with the things to fix. */
-  const porkDays=[];
+  const porkDays=[], sameProtein=[], onePork=[];
   DAYS.forEach(d=>{
     const day=state.days[d];
     if(day.closed || day.special) return;
-    if(porkMains(d).length>1) porkDays.push(DAYNAME[d]);
+    const np = porkMains(d).length;
+    if(np>1) porkDays.push(DAYNAME[d]);
+    else { const r=repeatedProtein(d); if(r) sameProtein.push(DAYNAME[d]+" ("+r+")"); }
+    /* One pork main is fine on the menu, but the counts still assume everyone
+       is equally likely to take it.  Only worth raising if this day has not
+       already been given its own percentages. */
+    if(np===1 && !(state.dayRates && state.dayRates[d])) onePork.push(DAYNAME[d]);
   });
 
   const badSplit=[];
@@ -3977,6 +4155,13 @@ function runPreflight(){
   if(porkDays.length) stop.push("<b>Both mains are pork on "+list(porkDays)
     +".</b> Anyone who does not eat pork is left with the vegan main and the salad.");
 
+  if(onePork.length) note.push("<b>A pork main on "+list(onePork)
+    +" is still counted at the usual split.</b> Everyone who does not eat pork moves to "
+    +"#2, #3 and #4, so those run short and the pork runs long. Give "
+    +(onePork.length===1?"that day":"those days")+" their own percentages in "
+    +"<b>Headcount &amp; take rates</b> if that matters on your site.");
+  if(sameProtein.length) note.push("<b>Both mains are the same protein on "+list(sameProtein)
+    +".</b> It still works, but a day reads better with two different ones.");
   if(noCost.length) note.push("<b>"+noCost.length+" dish"+(noCost.length===1?" has":"es have")
     +" no cost per serving</b>, so "+(noCost.length===1?"it counts":"they count")
     +" as free on the Profit sheet: "+list(uniq(noCost),6));
@@ -5892,6 +6077,22 @@ function impPorkHtml(day){
        + 'Change one here, or let it in and fix it on the day card.</div>';
 }
 
+/* Same idea as impPorkHtml, one step softer: a repeat is worth knowing, not
+   worth stopping for. */
+function impVaryHtml(day){
+  const seen = {};
+  IMP.rows.filter(r=>r.day===day && MAIN_SLOTS.indexOf(r.i)>=0 && r.raw && r.chosen!=="__skip")
+    .forEach(r=>{
+      const nm = r.chosen==="__raw" ? r.raw.toUpperCase() : r.chosen;
+      const pr = dishProtein(nm, impInfo(nm).a);
+      if(pr) seen[pr] = (seen[pr]||0)+1;
+    });
+  const rep = Object.keys(seen).find(k=>seen[k]>1);
+  if(!rep) return "";
+  if(rep==="pork") return "";            /* the pork box above already says it */
+  return '<div class="impextra vary">Both mains are <b>'+esc(rep)+'</b> on this day.</div>';
+}
+
 const IMP_PILL = {ok:"MATCHED", check:"CHECK", "new":"NEW DISH", none:"NOT WRITTEN"};
 
 function impRenderReview(){
@@ -5944,6 +6145,7 @@ function impRenderReview(){
     });
     h += '</div>';
     if(day!=="sat") h += '<div class="porkbox" data-day="'+day+'">'+impPorkHtml(day)+'</div>';
+    if(day!=="sat") h += '<div class="varybox" data-day="'+day+'">'+impVaryHtml(day)+'</div>';
     if(extra){
       h += '<div class="impextra"><b>Not placed &mdash; '
          + (day==="sat" ? "the Saturday strip only has three" : "only four slots a day")
@@ -5970,6 +6172,8 @@ function impRenderReview(){
       box.querySelector(".fills").innerHTML = impFillsHtml(r);
       const pb = wrap.querySelector('.porkbox[data-day="'+r.day+'"]');
       if(pb) pb.innerHTML = impPorkHtml(r.day);
+      const vb = wrap.querySelector('.varybox[data-day="'+r.day+'"]');
+      if(vb) vb.innerHTML = impVaryHtml(r.day);
     };
   });
 }
