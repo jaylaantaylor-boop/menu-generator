@@ -114,6 +114,29 @@ button.go:hover{filter:brightness(1.1)}
 .slot.isnew textarea{background:#f2fff6;border-color:#9ad9b4}
 .varywarn{margin:0 10px 10px;background:#fff8e9;border:1px solid #ecd9a8;color:#6b5410;
   border-radius:8px;padding:7px 9px;font-size:10.5px;font-weight:700;line-height:1.4}
+.costcount{font-size:10.5px;font-weight:800;letter-spacing:.4px;color:#8a6410;
+  background:#fff8e9;border:1px solid #ecd9a8;border-radius:20px;padding:2px 9px;margin-left:8px}
+.costcount.done{color:#2E7D46;background:#f1faf4;border-color:#b7ddc4}
+.costlist{margin-top:9px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.costrow{display:flex;align-items:center;gap:11px;padding:9px 12px;border-top:1px solid #f0f0f3}
+.costrow:first-child{border-top:0}
+.costrow:nth-child(even){background:#fafafc}
+.costrow .who{flex:1;min-width:0}
+.costrow .nm{font-size:12.5px;font-weight:700;color:var(--red);text-transform:uppercase;
+  line-height:1.3}
+.costrow .where{font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.4px;
+  margin-left:7px;text-transform:none}
+.costrow .d{font-size:11px;color:#6b6b76;font-style:italic;line-height:1.35;margin-top:2px}
+.costrow input{width:98px;flex:0 0 auto;text-align:right;font-weight:700}
+.costrow.unset{background:#fffdf6}
+.costrow.unset input{border-color:#e3c257;background:#fff}
+.costrow.unset .nm::after{content:"NO COST";font-size:9px;font-weight:800;letter-spacing:.5px;
+  color:#8a6410;background:#fff8e9;border:1px solid #ecd9a8;border-radius:20px;
+  padding:2px 7px;margin-left:8px;text-transform:none}
+@media(max-width:620px){
+  .costrow{flex-wrap:wrap}
+  .costrow input{width:100%}
+}
 .porkwarn{margin:0 10px 10px;background:#fdf0ef;border:1px solid #e8bdb9;color:#8a2b22;
   border-radius:8px;padding:7px 9px;font-size:10.5px;font-weight:700;line-height:1.4}
 .dayfoot{border-top:1px solid var(--line);padding:7px 10px;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted)}
@@ -548,7 +571,12 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
 
       <p class="subhead">Cost per unit on the extras</p>
       <div class="moneygrid" id="unitGrid"></div>
-      <p class="note" style="margin:5px 0 0">These are bought by the unit rather than cooked, so one price each covers the week. Entr&eacute;e costs are set per dish on the day cards above.</p>
+      <p class="note" style="margin:5px 0 0">These are bought by the unit rather than cooked, so one price each covers the week.</p>
+      <p class="subhead">Cost per serving <span class="costcount" id="costCount"></span></p>
+      <div class="costlist" id="costList"></div>
+      <p class="note" style="margin:7px 0 0">What one portion costs you to make. A price sticks to the
+      dish by name, so a dish you have priced once is already done every time it comes back round.
+      The same boxes are on the day cards; this is just all of them in one place.</p>
 
       <p class="subhead">This week</p>
       <div class="kpis" id="kpiRow"></div>
@@ -2193,7 +2221,82 @@ function buildGrid(){
     g.appendChild(card);
   });
 }
-function syncUI(){ buildGrid(); }
+function syncUI(){ buildGrid(); buildCostList(); }
+
+/* ---- cost per serving, all of this week's dishes in one place ----
+   The boxes already exist on each day card, but hunting through five columns
+   is why they stay empty — and an empty one silently counts the dish as free
+   on the Profit sheet.  Unpriced dishes sort to the top and say so. */
+function weekDishes(){
+  const out = [], seen = new Set();
+  const add = (name, desc, where) => {
+    const n = String(name||"").trim(); if(!n) return;
+    const k = n.toUpperCase();
+    if(seen.has(k)){ const e = out.find(o=>o.key===k); if(e) e.where.push(where); return; }
+    seen.add(k);
+    out.push({key:k, name:n, desc:desc||"", where:[where]});
+  };
+  DAYS.forEach(d=>{
+    const day = state.days[d];
+    if(day.closed || day.special) return;
+    day.slots.forEach((sl,i)=>add(sl.t, sl.d, DAYNAME[d]+" "+SLOT_SHORT[ENTREE_SLOT_KEYS[i]]));
+  });
+  if(!state.sat.closed) [1,2,3].forEach(i=>add(state.sat["m"+i], state.sat["d"+i], "SAT #"+i));
+  return out;
+}
+
+function buildCostList(){
+  const box = document.getElementById("costList"); if(!box) return;
+  const rows = weekDishes();
+  const missing = rows.filter(r=>!metaFor(r.name).c).length;
+
+  const tag = document.getElementById("costCount");
+  if(tag){
+    tag.textContent = rows.length === 0 ? ""
+      : missing ? missing+" of "+rows.length+" still need one"
+                : "all "+rows.length+" priced";
+    tag.classList.toggle("done", missing===0 && rows.length>0);
+  }
+  if(!rows.length){ box.innerHTML = ""; return; }
+
+  /* the ones that are missing come first: that is the job to finish */
+  rows.sort((a,z)=>{
+    const am = metaFor(a.name).c ? 1 : 0, zm = metaFor(z.name).c ? 1 : 0;
+    return am - zm || (a.name < z.name ? -1 : 1);
+  });
+
+  box.innerHTML = rows.map(r=>{
+    const c = metaFor(r.name).c;
+    return '<div class="costrow'+(c?"":" unset")+'" data-dish="'+esc(r.name)+'">'
+      + '<div class="who"><div class="nm">'+esc(r.name)
+      +   '<span class="where">'+esc(r.where.join(" \u00B7 "))+'</span></div>'
+      + (r.desc ? '<div class="d">'+esc(r.desc)+'</div>' : '')
+      + '</div>'
+      + '<input type="number" min="0" step="0.05" placeholder="0.00" '
+      +   'aria-label="Cost per serving for '+esc(r.name)+'" value="'+(c||"")+'">'
+      + '</div>';
+  }).join("");
+
+  box.querySelectorAll(".costrow").forEach(row=>{
+    const input = row.querySelector("input");
+    const name = row.dataset.dish;
+    input.oninput = ()=>{
+      const v = Math.max(0, numOr(input.value, 0));
+      setMeta(name, {c:v});
+      row.classList.toggle("unset", !v);
+      const left = weekDishes().filter(r=>!metaFor(r.name).c).length;
+      const t = document.getElementById("costCount");
+      if(t){
+        t.textContent = left ? left+" of "+weekDishes().length+" still need one"
+                             : "all "+weekDishes().length+" priced";
+        t.classList.toggle("done", left===0);
+      }
+      buildKpis(); render();       /* no rebuild of this list — it would steal focus */
+    };
+    /* the day cards carry the same box, so bring them into line once you are done */
+    input.onchange = ()=>buildGrid();
+  });
+}
 /* A day that was closed or on a special can end up with no dish names.
    Fill it back in rather than leaving the column empty. */
 function refillIfBlank(d){
@@ -6293,7 +6396,7 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
-  wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); wireSaveAlert(); wireOfflineChip(); registerOffline();
+  wire(); buildGrid(); buildCostList(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); wireSaveAlert(); wireOfflineChip(); registerOffline();
   wirePhotos();
   wireImport();
   /* the photo count on each card needs the index, which only IndexedDB can
