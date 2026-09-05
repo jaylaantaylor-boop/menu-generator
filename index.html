@@ -321,6 +321,121 @@ canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-
 .costin input.unset{background:#fff6e5;border-color:#ecd9a8}
 .warn{background:#fff6e5;border:1px solid #ecd9a8;color:#7a5a12;border-radius:8px;padding:7px 10px;font-size:11.5px;font-weight:600;margin-top:10px}
 textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;border:1px solid #d8d8de;border-radius:8px;padding:10px}
+
+/* ================= read a written menu =================
+   Full-screen on a phone, a centred panel on the laptop.  The review
+   deliberately mirrors the builder's day cards, and every slot shows the
+   description and allergen line it will print — a dish can match by name
+   and still carry an allergen you did not intend. */
+.imp{position:fixed;inset:0;background:rgba(10,10,13,.55);z-index:110;display:none;
+  align-items:center;justify-content:center;padding:0}
+.imp.on{display:flex}
+@media(min-width:900px){.imp.on{padding:26px}}
+.impbox{background:#fff;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
+@media(min-width:900px){
+  .impbox{max-width:1180px;max-height:100%;border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35)}
+}
+.imphead{display:flex;align-items:flex-start;gap:12px;padding:12px 14px 11px;
+  border-bottom:1px solid var(--line);background:#fff}
+.imphead h2{margin:0 0 2px;font-size:15px;font-weight:800;letter-spacing:-.2px}
+.imphead h2 span{color:var(--red)}
+.imphead .sub{font-size:11.5px;color:var(--muted);font-weight:600}
+.imphead .x{margin-left:auto;border:0;background:#f1f1f4;color:var(--muted);
+  font-size:19px;line-height:1;padding:4px 11px;border-radius:8px}
+.impbody{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px}
+.impfoot{border-top:1px solid var(--line);background:#fff;padding:10px 14px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.impfoot>div{display:flex;gap:8px;align-items:center}
+/* this rule sets a display, so [hidden] alone would not hide the other step's
+   buttons — the same trap as the save alert above */
+.impfoot>div[hidden]{display:none}
+.impfoot .grow{flex:1}
+.impfoot .note{flex:1;font-size:10.5px;color:var(--muted);font-weight:600;line-height:1.35}
+/* On a phone the buttons matter more than the note, and both things it says
+   are already said in place: the locked slot explains itself on its own card,
+   and the undo bar appears the moment the week is filled. */
+@media(max-width:700px){.impfoot .note{display:none}}
+
+/* ---- step 1: paste ---- */
+.imphow{margin:0 0 12px;padding-left:20px;font-size:13px;color:#333;line-height:1.65}
+.imphow li{margin-bottom:2px}
+.imphow b{font-weight:700}
+#impText{width:100%;min-height:210px;border:1px solid #d3d3d9;border-radius:10px;
+  padding:10px 11px;font-size:13.5px;line-height:1.5;resize:vertical;font-family:inherit}
+#impText:focus{outline:2px solid #bcd4ff;border-color:#7aa7ff}
+.impnote{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:10px}
+.imperr{margin-top:10px;background:#fdf0ef;border:1px solid #e8bdb9;color:#8a2b22;
+  border-radius:9px;padding:10px 12px;font-size:12.5px;font-weight:600;line-height:1.5}
+.imperr[hidden]{display:none}
+
+/* ---- step 2: the review ---- */
+.counts{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 13px}
+.counts b{font-size:10px;font-weight:800;letter-spacing:.4px;padding:3px 8px;
+  border-radius:20px;border:1px solid;background:#fff}
+.counts b.c-all{color:var(--muted);border-color:var(--line)}
+.counts b.c-ok{color:#2E7D46;border-color:#b7ddc4;background:#f1faf4}
+.counts b.c-check{color:#8a6410;border-color:#ecd9a8;background:#fff8e9}
+.counts b.c-new{color:#4A5568;border-color:#d3d8e0;background:#f5f6f8}
+.impcards{display:flex;flex-direction:column;gap:12px}
+@media(min-width:900px){.impcards{display:grid;grid-template-columns:repeat(2,1fr);align-items:start}}
+@media(min-width:1300px){.impcards{grid-template-columns:repeat(3,1fr)}}
+.impday{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  box-shadow:var(--shadow)}
+.impday h3{margin:0;background:#111;color:#fff;padding:8px 12px;font-size:12.5px;
+  letter-spacing:3px;text-align:center;font-weight:600}
+.impday .theme{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+  text-align:center;padding:6px 10px 0;font-weight:700}
+.impday .slots{padding:9px 11px 12px;display:flex;flex-direction:column;gap:10px}
+.impslot{border-top:1px solid #f0f0f3;padding-top:9px}
+.impslot:first-child{border-top:0;padding-top:2px}
+.impslot .lab{font-size:9.5px;font-weight:800;color:var(--muted);letter-spacing:.4px;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.impslot .lab .l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.impslot .raw{display:block;font-size:12px;color:#7a7a86;font-style:italic;margin-bottom:4px}
+.impslot .pick{position:relative}
+.impslot .pick .face{border:1px solid #d8d8de;border-radius:7px;padding:6px 22px 6px 8px;
+  font-size:12px;color:var(--red);font-weight:700;text-transform:uppercase;line-height:1.35;
+  background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7'><path d='M1 1l4 4 4-4' fill='none' stroke='%23999' stroke-width='1.6'/></svg>") no-repeat right 8px center}
+/* the real control, invisible on top, so the phone's own picker still opens */
+.impslot .pick select.to{position:absolute;inset:0;width:100%;height:100%;opacity:0;
+  border:0;padding:0;margin:0;-webkit-appearance:none;appearance:none}
+.impslot.check .pick .face{border-color:#e3c257;background-color:#fffdf6}
+.impslot.new .pick .face{border-color:#c8cdd6;color:#333;background-color:#fafbfc}
+.impslot.locked .pick{opacity:.55}
+.impslot .why{margin-top:5px;font-size:10.5px;color:#8a6410;line-height:1.4;font-weight:600}
+.impslot.new .why{color:#4A5568}
+.impslot .lockwhy{color:#8a2b22}
+.impslot .fills{margin-top:6px;border-left:2px solid #e6e6ea;padding-left:8px}
+.impslot .fills .d{font-size:11px;color:#454545;font-style:italic;line-height:1.35}
+.impslot .fills .a{font-size:10px;color:#111;font-weight:800;letter-spacing:.2px;margin-top:3px}
+.impslot .fills .none{font-size:10.5px;color:#a0a0aa;font-weight:600;font-style:italic;line-height:1.35}
+.impday .shut{font-size:11.5px;color:#8a2b22;font-weight:700;line-height:1.4;padding:2px 0}
+.impday .nothing{font-size:11.5px;color:#a0a0aa;font-weight:600;font-style:italic;
+  line-height:1.4;padding:2px 0}
+.pill{font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:20px;
+  border:1px solid;white-space:nowrap}
+.pill.ok{color:#2E7D46;border-color:#b7ddc4;background:#f1faf4}
+.pill.check{color:#8a6410;border-color:#ecd9a8;background:#fff8e9}
+.pill.new{color:#4A5568;border-color:#d3d8e0;background:#f5f6f8}
+.pill.none{color:#a0a0aa;border-color:#e3e3e6;background:#fafafc}
+.impextra{background:#fff8e9;border:1px solid #ecd9a8;border-radius:9px;margin:0 11px 11px;
+  padding:8px 10px;font-size:11px;color:#6b5410;line-height:1.5}
+.impextra b{display:block;color:#4a3a0a;margin-bottom:2px}
+.impextra.wide{margin:0}
+
+/* ---- the way back out ---- */
+.impundo{position:fixed;left:12px;right:12px;bottom:14px;z-index:115;background:#111;color:#fff;
+  border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  box-shadow:0 8px 28px rgba(0,0,0,.3)}
+.impundo[hidden]{display:none}
+.impundo .msg{flex:1;min-width:170px;font-size:12.5px;font-weight:600;line-height:1.35}
+.impundo .msg b{font-weight:800}
+.impundo button{background:#fff;color:#111;border:0;font-weight:800;padding:7px 13px;
+  border-radius:8px;font-size:12.5px}
+.impundo button.ghost{background:transparent;color:#c9c9d2;border:1px solid #44444e}
+@media(min-width:900px){.impundo{left:auto;right:20px;bottom:20px;max-width:460px}}
+
 </style>
 </head>
 <body>
@@ -348,6 +463,7 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
       <label class="f">No-repeat weeks<input type="number" id="cooldown" min="0" max="26" value="6"></label>
       <label class="f">Themes<label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;padding:8px 0"><input type="checkbox" id="themeLock" checked> Stick to weekday themes</label></label>
       <label class="f">Footer<select id="barStyle"><option value="qr">Logo + QR codes</option><option value="logo">Logo only</option></select></label>
+      <label class="f"><span>&nbsp;</span><button id="impOpen" title="Turn a photo of your written sheet into this week's menu" style="white-space:nowrap">&#128203; Read a written menu</button></label>
     </div>
   </div>
 </header>
@@ -540,6 +656,56 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
   </div>
   <div class="stage" id="lbStage"></div>
   <div class="film" id="lbFilm"></div>
+</div>
+<div class="imp" id="impSheet">
+  <div class="impbox">
+    <div class="imphead">
+      <div>
+        <h2>Read a <span>written menu</span></h2>
+        <div class="sub" id="impSub">Copy the text off your photo, then paste it in here.</div>
+      </div>
+      <button class="x" id="impX" title="Close">&times;</button>
+    </div>
+
+    <div class="impbody" id="impBody">
+      <div id="impStep1">
+        <ol class="imphow">
+          <li>Photograph the sheet, then open it in <b>Photos</b>.</li>
+          <li>Tap the <b>text button</b> at the bottom right of the picture.</li>
+          <li>Drag across the whole menu and tap <b>Copy</b>.</li>
+          <li>Paste it in the box below.</li>
+        </ol>
+        <textarea id="impText" placeholder="MON&#10;italian sub&#10;chix parm sub&#10;grilled veggie sub&#10;greek salad&#10;&#10;TUE&#10;carne asada tacos w/ corn&#10;&#8230;"></textarea>
+        <div class="imperr" id="impErr" hidden></div>
+        <div class="impnote">Write a day above each group &mdash; MON, TUES, T, whatever you normally put.
+        Four dishes a day: two mains, the vegan main, then the salad. Order does not matter;
+        salads and vegan dishes find their own slot. Nothing changes until you have looked it over.</div>
+      </div>
+      <div id="impStep2" hidden>
+        <div class="counts" id="impCounts"></div>
+        <div class="impcards" id="impCards"></div>
+      </div>
+    </div>
+
+    <div class="impfoot">
+      <div id="impFoot1">
+        <button id="impClear">Clear</button>
+        <div class="grow"></div>
+        <button id="impCancel">Cancel</button>
+        <button class="go" id="impGo">Read it</button>
+      </div>
+      <div id="impFoot2" hidden>
+        <div class="note">Locked slots stay as they are.<br>You can undo this straight after.</div>
+        <button id="impBack">Back</button>
+        <button class="go" id="impApply">Fill the week</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="impundo" id="impUndo" hidden>
+  <div class="msg" id="impUndoMsg"></div>
+  <button id="impUndoBtn">Undo the import</button>
+  <button class="ghost" id="impUndoHide">Dismiss</button>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -5161,6 +5327,510 @@ function wireOfflineChip(){
   window.addEventListener("offline", sync);
 }
 
+/* ================= read a written menu =================
+   The phone's own text selection turns a photo of the handwritten sheet
+   into plain text.  This reads that text back into the week: it works out
+   which lines belong to which day, which slot each one is, and which dish
+   in the library it means.  Nothing is written until it has been shown. */
+
+/* Day headers.  Checked longest-first so "TH" cannot be read as Tuesday. */
+const IMP_DAYRE = [
+  ["thu", /^TH(U(R|RS|RSDAY)?)?$/],          /* before TUE, so "TH" is Thursday */
+  ["mon", /^M(O(N(DAY)?)?)?$/],
+  ["tue", /^T(U(E(S|SDAY)?)?)?$/],
+  ["wed", /^W(E(D(S|NESDAY)?)?)?$/],
+  ["fri", /^F(R(I(DAY)?)?)?$/],
+  ["sat", /^S(A(T(URDAY)?)?)?$/]
+];
+const IMP_MONTH = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)[A-Z]*\b/g;
+
+/* A day header may carry a date — "MON 9/8", "TUESDAY SEPT 9TH".  Strip
+   anything date-shaped and see whether a bare day name is what is left. */
+function impDayOf(line){
+  const t = String(line).toUpperCase()
+    .replace(/[^A-Z0-9\/\-\s]/g," ")
+    .replace(IMP_MONTH," ")
+    .replace(/\b\d{1,2}\s*[\/\-]\s*\d{1,2}(\s*[\/\-]\s*\d{2,4})?\b/g," ")
+    .replace(/\b\d{1,2}(ST|ND|RD|TH)?\b/g," ")
+    .replace(/\s+/g," ").trim();
+  if(!t) return null;
+  const hit = IMP_DAYRE.find(p=>p[1].test(t));
+  return hit ? hit[0] : null;
+}
+
+/* "MON - italian sub" puts the day and the first dish on one line. */
+const IMP_INLINE = /^\s*(MONDAY|MON|MO|TUESDAY|TUES|TUE|TU|WEDNESDAY|WEDS|WED|WE|THURSDAY|THURS|THUR|THU|TH|FRIDAY|FRI|FR|SATURDAY|SAT|SA)\b[\s.:\-–—]+(.*)$/i;
+
+function impCleanItem(line){
+  return String(line)
+    .replace(/^\s*[-–—•*·▪>]+\s*/,"")        /* bullets */
+    .replace(/^\s*#?\d+\s*[.):\-]\s*/,"")    /* "1." "2)" "#3 -" */
+    .replace(/^\s*#\s*\d+\s*/,"")            /* "#1 " */
+    .replace(/\s+/g," ")
+    .replace(/[.,;]+$/,"")
+    .trim();
+}
+
+const IMP_JUNK = /^(MENU|WEEKLY MENU|LUNCH|LUNCH MENU|WEEK)$/i;
+
+function impWeekLabel(line){
+  const t = String(line).toUpperCase().trim().replace(/\.$/,"");
+  if(/^WEEK\s*(OF)?\b/.test(t)){
+    const rest = t.replace(/^WEEK\s*(OF)?\s*[:\-–—]?\s*/,"").trim();
+    return rest || null;
+  }
+  /* a bare range on its own line: "SEPT 7 - 12", "SEPT 7 - OCT 2" */
+  if(/^[A-Z]{3,9}\.?\s*\d{1,2}\s*[-–—]\s*([A-Z]{3,9}\.?\s*)?\d{1,2}$/.test(t)) return t.replace(/\./g,"");
+  return null;
+}
+
+function impParse(text){
+  const out = {label:null, days:{}, loose:[]};
+  ["mon","tue","wed","thu","fri","sat"].forEach(d=>out.days[d]={items:[], closed:false});
+  let cur = null;
+  String(text||"").split(/\r?\n/).forEach(raw=>{
+    const line = raw.trim();
+    if(!line) return;
+
+    const day = impDayOf(line);
+    if(day){ cur = day; return; }
+
+    const inline = line.match(IMP_INLINE);
+    if(inline && inline[2] && impDayOf(inline[1])){
+      cur = impDayOf(inline[1]);
+      const rest = inline[2].trim();
+      if(rest && !impDayOf(rest)){
+        const it = impCleanItem(rest);
+        if(it && !IMP_JUNK.test(it)) out.days[cur].items.push(it);
+      }
+      return;
+    }
+
+    if(!out.label){ const wl = impWeekLabel(line); if(wl){ out.label = wl; return; } }
+    if(IMP_JUNK.test(line)) return;
+
+    const item = impCleanItem(line);
+    if(!item) return;
+    if(/^CLOSED$/i.test(item)){ if(cur) out.days[cur].closed = true; return; }
+    if(cur) out.days[cur].items.push(item); else out.loose.push(item);
+  });
+  return out;
+}
+
+/* ---- which slot each line belongs in ----
+   Slots are #1 main, #2 main, #3 vegan, #4 salad.  A line naming a salad
+   goes last and a plant-based line goes third, whatever order they were
+   written in; everything else falls into #1 and #2 as written. */
+const IMP_SALAD    = /\bSALADS?\b/;
+const IMP_NOTSALAD = /\b(WRAP|SUB|SANDWICH|PITA|BURRITO|TACO|TACOS|ROLL|MELT|BOWL|PLATTER)\b/;
+const IMP_VEGAN    = /\b(VEGAN|VEGGIE|VEGGIES|VEGETABLE|VEGETARIAN|IMPOSSIBLE|FALAFEL|EGGPLANT|TOFU|PLANT|PRIMAVERA|HUMMUS)\b/;
+
+function impPlace(items){
+  const slots = [null,null,null,null];
+  const left  = items.slice();
+  const up = s => String(s).toUpperCase();
+
+  for(let i=left.length-1;i>=0;i--){
+    const t = up(left[i]);
+    if(IMP_SALAD.test(t) && !IMP_NOTSALAD.test(t)){ slots[3] = left.splice(i,1)[0]; break; }
+  }
+  for(let i=left.length-1;i>=0;i--){
+    if(IMP_VEGAN.test(up(left[i]))){ slots[2] = left.splice(i,1)[0]; break; }
+  }
+  [0,1,2,3].forEach(i=>{ if(slots[i]==null && left.length) slots[i] = left.shift(); });
+  return {slots, extra:left};
+}
+
+/* ---- matching a written line to a dish already in the library ---- */
+const IMP_ABBR = {
+  CHIX:"CHICKEN", CHIK:"CHICKEN", CHKN:"CHICKEN", CHICK:"CHICKEN",
+  CHZ:"CHEESE", CHS:"CHEESE", CHEEZ:"CHEESE", CHEESESTEAK:"CHEESESTEAK",
+  MOZZ:"MOZZARELLA", AMER:"AMERICAN", PROV:"PROVOLONE", PEPP:"PEPPER",
+  SNDWCH:"SANDWICH", SANDW:"SANDWICH", SAND:"SANDWICH",
+  VEG:"VEGGIE", VEGGIES:"VEGGIE", POTATOES:"POTATO", ONIONS:"ONION",
+  PEPPERS:"PEPPER", TACOS:"TACO", RIBS:"RIB", SALADS:"SALAD", W:"WITH", WI:"WITH"
+};
+const IMP_STOP = new Set(["WITH","AND","OF","A","THE","ON","IN","SIDE","OUR","TOPPED","SERVED","OR"]);
+
+function impTokens(s){
+  /* Short forms are expanded first, so "chz steak" and "cheesesteak" end up
+     as the same single word before the two-word phrases are joined up. */
+  const words = String(s||"").toUpperCase()
+    .replace(/&/g," AND ").replace(/\+/g," AND ")
+    .replace(/\bW\s*\/\s*/g," WITH ")
+    .replace(/[^A-Z0-9]+/g," ")
+    .split(" ").filter(Boolean)
+    .map(w=>IMP_ABBR[w]||w)
+    .join(" ")
+    .replace(/\bCHEESE\s+STEAK\b/g,"CHEESESTEAK")   /* written either way */
+    .replace(/\bHOT\s+DOG\b/g,"HOTDOG");
+  return words.split(" ").filter(Boolean).filter(w=>!IMP_STOP.has(w));
+}
+/* Dice coefficient over the content words — forgiving about word order and
+   about the extra words a written line leaves out. */
+function impDice(a,b){
+  const A=new Set(a), B=new Set(b);
+  if(!A.size||!B.size) return 0;
+  let hit=0; A.forEach(w=>{ if(B.has(w)) hit++; });
+  return (2*hit)/(A.size+B.size);
+}
+
+const IMP_SURE   = 0.90;   /* at or above this, take it */
+const IMP_MAYBE  = 0.50;   /* between the two, show it and ask */
+const IMP_CLOSE  = 0.07;   /* two candidates this near each other is a tie */
+
+function impMatch(raw, pool){
+  const tk = impTokens(raw);
+  const r  = String(raw).toUpperCase().trim();
+  const scored = pool.map(c=>{
+    let s = impDice(tk, c.tk);
+    if(!c.same) s *= 0.94;                       /* the day's own dishes win ties */
+    const n = c.n.toUpperCase().trim();
+    if(n === r) s = 1;
+    else if(n.startsWith(r) || r.startsWith(n)) s = Math.max(s, 0.90);
+    return {c, s};
+  }).sort((x,y)=>y.s-x.s);
+
+  const top = scored[0], second = scored[1];
+  if(!top || top.s < IMP_MAYBE) return {st:"new", cand:null, why:"Nothing close in the library. It goes in exactly as written.", alts:scored.slice(0,6)};
+
+  /* Two dishes only really compete when what you wrote is the opening of
+     both of them — "patty melt" when the library holds two patty melts.
+     A merely similar runner-up is not a tie and should not nag. */
+  const ext = c => { const n = c.n.toUpperCase().trim(); return n !== r && n.startsWith(r); };
+  const tie = second && (top.s - second.s) < IMP_CLOSE && second.s >= IMP_MAYBE
+              && (top.s < IMP_SURE || (ext(top.c) && ext(second.c)));
+  if(top.s >= IMP_SURE && !tie) return {st:"ok", cand:top.c, why:"", alts:scored.slice(0,6)};
+  return {st:"check", cand:top.c, why:impWhy(raw, top.c, second, tie), alts:scored.slice(0,6)};
+}
+
+function impWhy(raw, cand, second, tie){
+  if(tie && second) return "Also close: "+second.c.n+".";
+  const rt = new Set(impTokens(raw));
+  const ct = impTokens(cand.n);
+  const extra = ct.filter(w=>!rt.has(w));
+  if(extra.length) return "The saved dish also has "+extra.slice(0,4).join(", ").toLowerCase()+".";
+  const cs = new Set(ct);
+  const miss = impTokens(raw).filter(w=>!cs.has(w));
+  if(miss.length) return "Your line says "+miss.slice(0,4).join(", ").toLowerCase()+" — the saved dish doesn't.";
+  return "Close, but not word for word.";
+}
+
+/* ---- lines that wrapped ----
+   Phone text selection breaks a long dish across two lines as often as not:
+       philly cheesesteak with fried
+       onions and american
+   If a day came back with more than four items, try joining neighbours and
+   keep whichever join the library recognises better than the two halves. */
+function impReflow(items, pool){
+  const best = s => { const m = impMatch(s, pool); return m.cand ? impDice(impTokens(s), m.cand.tk) : 0; };
+  let out = items.slice(), guard = 0;
+  while(out.length > 4 && guard++ < 12){
+    let at = -1, gain = 0;
+    for(let i=0;i<out.length-1;i++){
+      const a = best(out[i]), b = best(out[i+1]);
+      const j = best(out[i]+" "+out[i+1]);
+      const g = j - Math.max(a,b);
+      if(g > gain){ gain = g; at = i; }
+    }
+    if(at < 0 || gain < 0.06) break;
+    out.splice(at, 2, out[at]+" "+out[at+1]);
+  }
+  return out;
+}
+
+
+/* ---- the dishes a written line could mean ---- */
+function impPool(day){
+  const seen=new Set(), out=[];
+  const add=(o,d,kind,same)=>{
+    const n=String(o.n||"").trim(); if(!n) return;
+    const k=n.toUpperCase(); if(seen.has(k)) return; seen.add(k);
+    out.push({n:n, d:o.d||"", a:o.a||"", day:d, kind:kind, same:same, tk:impTokens(n)});
+  };
+  ["mains","vegan","salads"].forEach(k=>((LIB[day]||{})[k]||[]).forEach(o=>add(o,day,k,true)));
+  DAYS.forEach(d=>{ if(d===day) return;
+    ["mains","vegan","salads"].forEach(k=>((LIB[d]||{})[k]||[]).forEach(o=>add(o,d,k,false))); });
+  return out;
+}
+/* The description and allergen line a dish will print. */
+function impInfo(name){
+  const k=String(name||"").trim().toUpperCase(); if(!k) return {d:"",a:""};
+  for(const d of DAYS) for(const kind of ["mains","vegan","salads"]){
+    const o=((LIB[d]||{})[kind]||[]).find(o=>String(o.n).trim().toUpperCase()===k);
+    if(o && (o.d||o.a)) return {d:o.d||"", a:o.a||""};
+  }
+  const e=DESC[k]; return e ? {d:e[0], a:e[1]} : {d:"",a:""};
+}
+const impAttr = t => String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+/* ================= the import sheet ================= */
+let IMP = null;        /* what was read, waiting to be approved */
+let IMP_UNDO = null;   /* the week as it was, so the whole thing can go back */
+
+function impStep(n){
+  document.getElementById("impStep1").hidden = n!==1;
+  document.getElementById("impStep2").hidden = n!==2;
+  document.getElementById("impFoot1").hidden = n!==1;
+  document.getElementById("impFoot2").hidden = n!==2;
+  document.getElementById("impSub").textContent = n===1
+    ? "Copy the text off your photo, then paste it in here."
+    : "Check these before they go on the sheet.";
+}
+function impOpen(){
+  document.getElementById("impSheet").classList.add("on");
+  impStep(1);
+  document.getElementById("impErr").hidden = true;
+  document.body.style.overflow = "hidden";
+  setTimeout(()=>document.getElementById("impText").focus(), 60);
+}
+function impClose(){
+  document.getElementById("impSheet").classList.remove("on");
+  document.body.style.overflow = "";
+}
+
+/* Step 1 -> step 2: read the text, match every line, show the result. */
+function impRead(){
+  const text = document.getElementById("impText").value;
+  const parsed = impParse(text);
+  const rows = [];
+  let counts = {read:0, ok:0, check:0, fresh:0};
+
+  DAYS.forEach(day=>{
+    const got = parsed.days[day];
+    const pool = impPool(day);
+    const items = impReflow(got.items, pool);
+    const placed = impPlace(items);
+    placed.slots.forEach((raw,i)=>{
+      if(!raw){ rows.push({day:day, i:i, raw:"", st:"none", chosen:"__skip", why:"", alts:[]}); return; }
+      const m = impMatch(raw, pool);
+      counts.read++;
+      if(m.st==="ok") counts.ok++; else if(m.st==="check") counts.check++; else counts.fresh++;
+      rows.push({day:day, i:i, raw:raw, st:m.st, why:m.why, alts:m.alts,
+                 chosen: m.cand ? m.cand.n : "__raw"});
+    });
+    if(placed.extra.length) rows.push({day:day, i:-1, extra:placed.extra});
+  });
+
+  if(!counts.read){
+    const e=document.getElementById("impErr");
+    e.hidden=false;
+    e.textContent = parsed.loose.length
+      ? "I found "+parsed.loose.length+" line"+(parsed.loose.length===1?"":"s")+" but no day headings, so I can't tell which day they belong to. Put MON, TUE, WED, THU, FRI above each day's dishes and try again."
+      : "Nothing came through. Paste the text you copied off the photo into the box above.";
+    return;
+  }
+
+  IMP = {rows:rows, counts:counts, closed:parsed.days, loose:parsed.loose,
+         label:parsed.label, sat:parsed.days.sat.items.slice()};
+  impStep(2);
+  impRenderReview();
+  document.getElementById("impBody").scrollTop = 0;
+}
+
+function impCountsHtml(c){
+  return '<b class="c-all">'+c.read+' READ</b>'
+       + '<b class="c-ok">'+c.ok+' MATCHED</b>'
+       + (c.check ? '<b class="c-check">'+c.check+' TO CHECK</b>' : '')
+       + (c.fresh ? '<b class="c-new">'+c.fresh+' NEW DISH</b>' : '');
+}
+
+/* The dropdown for one slot: the best match, then the near misses, then
+   everything in the library, then the two ways out. */
+function impOptions(r){
+  const cur = r.chosen;
+  const pool = impPool(r.day);
+  const alts = (r.alts||[]).map(a=>a.c.n).filter((n,i,arr)=>arr.indexOf(n)===i);
+  const opt = (v,label,sel)=>'<option value="'+impAttr(v)+'"'+(sel?" selected":"")+'>'+esc(label)+'</option>';
+  let h = "";
+  if(alts.length){
+    h += '<optgroup label="Closest in your library">';
+    alts.slice(0,6).forEach(n=>{ h += opt(n, n, cur===n); });
+    h += '</optgroup>';
+  }
+  h += '<optgroup label="Use what you wrote">'
+     + opt("__raw", r.raw.toUpperCase(), cur==="__raw")
+     + '</optgroup>'
+     + '<optgroup label="Or">'
+     + opt("__skip", "Leave this slot as it is", cur==="__skip")
+     + '</optgroup>';
+  const kindName = {mains:"mains", vegan:"vegan", salads:"salads"};
+  const chosen = alts.slice(0,6);
+  ["mains","vegan","salads"].forEach(k=>{
+    const list = pool.filter(c=>c.same && c.kind===k && chosen.indexOf(c.n)<0);
+    if(!list.length) return;
+    h += '<optgroup label="'+DAYNAME[r.day]+' '+kindName[k]+'">';
+    list.forEach(c=>{ h += opt(c.n, c.n, cur===c.n); });
+    h += '</optgroup>';
+  });
+  const rest = pool.filter(c=>!c.same && chosen.indexOf(c.n)<0);
+  if(rest.length){
+    h += '<optgroup label="Every other dish">';
+    rest.forEach(c=>{ h += opt(c.n, c.n, cur===c.n); });
+    h += '</optgroup>';
+  }
+  /* a dish that is in the week but nowhere in the library still needs to show */
+  if(cur!=="__raw" && cur!=="__skip" && !pool.some(c=>c.n===cur) && alts.indexOf(cur)<0){
+    h = opt(cur, cur, true) + h;
+  }
+  return h;
+}
+
+/* What the slot will actually say, spelled out in full. */
+function impFaceOf(r){
+  if(r.chosen==="__skip") return "Leave this slot as it is";
+  return (r.chosen==="__raw" ? r.raw : r.chosen).toUpperCase();
+}
+function impFillsHtml(r){
+  if(r.chosen==="__skip") return '<div class="none">This slot keeps whatever is in it now.</div>';
+  const name = r.chosen==="__raw" ? r.raw.toUpperCase() : r.chosen;
+  const inf = impInfo(name);
+  if(!inf.d && !inf.a) return '<div class="none">No description or allergens saved &mdash; you&rsquo;ll type these in.</div>';
+  const al = allergenLine(inf.a);   /* the same wording that goes on the sheet */
+  return (inf.d ? '<div class="d">'+esc(inf.d)+'</div>' : '')
+       + (al ? '<div class="a">'+esc(al)+'</div>' : '');
+}
+
+const IMP_PILL = {ok:"MATCHED", check:"CHECK", "new":"NEW DISH", none:"NOT WRITTEN"};
+
+function impRenderReview(){
+  document.getElementById("impCounts").innerHTML = impCountsHtml(IMP.counts);
+  const wrap = document.getElementById("impCards");
+  wrap.innerHTML = "";
+
+  DAYS.forEach(day=>{
+    const rows = IMP.rows.filter(r=>r.day===day && r.i>=0);
+    const extra = IMP.rows.find(r=>r.day===day && r.i===-1);
+    const wrote = rows.some(r=>r.raw);
+    const shut = !!(IMP.closed[day] && IMP.closed[day].closed);
+    const card = el("div","impday");
+    let h = '<h3>'+DAYNAME[day]+'</h3><div class="theme">'+esc(LIB[day].label||"")+'</div>';
+    if(shut && !wrote){
+      h += '<div class="slots"><div class="shut">You wrote CLOSED, so this day will be marked closed.</div></div>';
+      card.innerHTML = h; wrap.appendChild(card); return;
+    }
+    if(!wrote){
+      h += '<div class="slots"><div class="nothing">Nothing written for this day &mdash; it stays exactly as it is.</div></div>';
+      card.innerHTML = h; wrap.appendChild(card); return;
+    }
+    if(shut) h += '<div class="slots" style="padding-bottom:0"><div class="shut">You wrote CLOSED, so this day will be marked closed.</div></div>';
+    h += '<div class="slots">';
+    rows.forEach(r=>{
+      const locked = state.days[day].slots[r.i].lock;
+      h += '<div class="impslot '+r.st+(locked?" locked":"")+'" data-day="'+day+'" data-i="'+r.i+'">'
+         +   '<div class="lab"><span class="l">'+esc(SLOT_LABEL[r.i])+'</span>'
+         +     '<span class="pill '+r.st+'">'+(locked?"LOCKED":IMP_PILL[r.st])+'</span></div>';
+      if(!r.raw){
+        h += '<div class="nothing">Nothing written here &mdash; the slot stays as it is.</div></div>';
+        return;
+      }
+      h += '<span class="raw">you wrote &ldquo;'+esc(r.raw)+'&rdquo;</span>'
+         + '<div class="pick"><div class="face">'+esc(impFaceOf(r))+'</div>'
+         +   '<select class="to">'+impOptions(r)+'</select></div>'
+         + (r.why ? '<div class="why">'+esc(r.why)+'</div>' : '')
+         + '<div class="fills">'+impFillsHtml(r)+'</div>'
+         + (locked ? '<div class="why lockwhy">This slot is locked, so the import leaves it alone. Unlock it on the day card to let this in.</div>' : '')
+         + '</div>';
+    });
+    h += '</div>';
+    if(extra){
+      h += '<div class="impextra"><b>Not placed &mdash; only four slots a day:</b> '
+         + extra.extra.map(x=>esc(x)).join(" &middot; ") + '</div>';
+    }
+    card.innerHTML = h;
+    wrap.appendChild(card);
+  });
+
+  if(IMP.sat && IMP.sat.length){
+    const d = el("div","impextra wide");
+    d.innerHTML = '<b>Saturday is left alone.</b> It is the fixed strip you set on the '
+                + 'Saturday panel, so the import does not touch it. You wrote: '
+                + IMP.sat.map(x=>esc(x)).join(" &middot; ");
+    wrap.appendChild(d);
+  }
+  if(IMP.loose && IMP.loose.length){
+    const d = el("div","impextra wide");
+    d.innerHTML = '<b>No day heading above these, so they were skipped:</b> '
+                + IMP.loose.map(x=>esc(x)).join(" &middot; ");
+    wrap.appendChild(d);
+  }
+
+  wrap.querySelectorAll("select.to").forEach(sel=>{
+    sel.onchange = ()=>{
+      const box = sel.closest(".impslot");
+      const r = IMP.rows.find(x=>x.day===box.dataset.day && x.i===+box.dataset.i);
+      r.chosen = sel.value;
+      box.querySelector(".pick .face").textContent = impFaceOf(r);
+      box.querySelector(".fills").innerHTML = impFillsHtml(r);
+    };
+  });
+}
+
+/* Step 2 -> the week itself. */
+function impApply(){
+  IMP_UNDO = JSON.parse(JSON.stringify(state.days));
+  let put=0, skippedLock=0;
+  IMP.rows.forEach(r=>{
+    if(r.i<0 || !r.raw || r.chosen==="__skip") return;
+    const slot = state.days[r.day].slots[r.i];
+    if(slot.lock){ skippedLock++; return; }
+    const name = (r.chosen==="__raw" ? r.raw : r.chosen).toUpperCase();
+    const inf = impInfo(name);
+    slot.t = name; slot.d = inf.d; slot.a = inf.a; slot.isNew = false;
+    put++;
+  });
+  DAYS.forEach(d=>{ if(IMP.closed[d] && IMP.closed[d].closed) state.days[d].closed = true; });
+
+  syncUI(); render(); persist();
+  impClose();
+  impUndoBar(put, skippedLock);
+}
+
+function impUndoBar(put, locked){
+  const bar = document.getElementById("impUndo");
+  document.getElementById("impUndoMsg").innerHTML =
+      '<b>'+put+' dish'+(put===1?"":"es")+'</b> put into the week'
+    + (locked ? ' &mdash; '+locked+' locked slot'+(locked===1?"":"s")+' left alone' : '');
+  bar.hidden = false;
+  clearTimeout(impUndoBar.t);
+  impUndoBar.t = setTimeout(()=>{ bar.hidden = true; }, 30000);
+}
+function impUndo(){
+  if(!IMP_UNDO) return;
+  /* put the days back in place rather than swapping the whole state object —
+     the money and headcount panels hold a reference to it */
+  DAYS.forEach(d=>{ state.days[d] = IMP_UNDO[d]; });
+  IMP_UNDO = null;
+  document.getElementById("impUndo").hidden = true;
+  syncUI(); render(); persist();
+  toast("Import undone");
+}
+
+function wireImport(){
+  document.getElementById("impOpen").onclick = ()=>{
+    /* close the settings sheet behind it on a phone; harmless on desktop,
+       where display:contents means the sheet is part of the header row */
+    const sh=document.getElementById("hdrSheet"), g=document.getElementById("gear");
+    sh.classList.remove("on"); g.classList.remove("on"); g.setAttribute("aria-expanded","false");
+    impOpen();
+  };
+  document.getElementById("impCancel").onclick = impClose;
+  document.getElementById("impX").onclick = impClose;
+  document.getElementById("impGo").onclick = impRead;
+  document.getElementById("impBack").onclick = ()=>impStep(1);
+  document.getElementById("impApply").onclick = impApply;
+  document.getElementById("impUndoBtn").onclick = impUndo;
+  document.getElementById("impUndoHide").onclick = ()=>{ document.getElementById("impUndo").hidden = true; };
+  document.getElementById("impClear").onclick = ()=>{
+    document.getElementById("impText").value = "";
+    document.getElementById("impErr").hidden = true;
+    document.getElementById("impText").focus();
+  };
+  document.addEventListener("keydown", e=>{
+    if(e.key==="Escape" && document.getElementById("impSheet").classList.contains("on")) impClose();
+  });
+}
+
 /* ================= init ================= */
 function init(){
   let pending=2;
@@ -5168,6 +5838,7 @@ function init(){
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
   wire(); buildGrid(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); wireSaveAlert(); wireOfflineChip(); registerOffline();
   wirePhotos();
+  wireImport();
   /* the photo count on each card needs the index, which only IndexedDB can
      answer — so the cards are drawn once now and refreshed when it lands */
   rebuildPhotoIndex().then(()=>{ buildGrid(); buildPhotoPanel(); })
