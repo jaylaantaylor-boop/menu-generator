@@ -11,7 +11,8 @@
  * browser limits control to /menu-generator/, and the fetch handler checks the
  * path again rather than trusting that.
  */
-const VERSION = "menugen-2026-08-27";
+const CACHE_PREFIX = "menugen-";
+const VERSION = CACHE_PREFIX + "2026-09-06";
 const CORE = ["./", "./index.html", "./manifest.webmanifest",
               "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 const SCOPE_PATH = new URL("./", self.location).pathname;
@@ -24,7 +25,12 @@ self.addEventListener("install", e=>{
 self.addEventListener("activate", e=>{
   e.waitUntil(
     caches.keys()
-      .then(keys=>Promise.all(keys.filter(k=>k!==VERSION).map(k=>caches.delete(k))))
+      /* Only ever delete OUR OWN old caches. Four other PWAs share the
+         jaylaantaylor-boop.github.io origin, and a bare k!==VERSION filter
+         deletes their shells too — that is the bug that left whichever app
+         had been opened least recently with no offline copy. */
+      .then(keys=>Promise.all(keys.filter(k=>k.startsWith(CACHE_PREFIX) && k!==VERSION)
+                                  .map(k=>caches.delete(k))))
       .then(()=>self.clients.claim())
       .catch(()=>{})
   );

@@ -2370,18 +2370,25 @@ function dayColumn(c, x, day, s, draw){
   const rule = (yy)=>{ if(!draw) return; c.strokeStyle="#D8D8DC"; c.lineWidth=1.4*s;
     c.beginPath(); c.moveTo(L,yy); c.lineTo(L+maxW,yy); c.stroke(); };
 
+  /* A blank dish name means that slot is not on the menu that day. Draw nothing
+     for it - no badge, no divider, no "(SALAD)" line - and let the day close up.
+     Before this, an empty slot printed a literal "X" under its qualifier.
+     The qualifier still comes from the slot's POSITION, so #4 stays the salad
+     when #3 is empty; only the printed number is resequenced. */
+  let shown = 0;
   day.slots.forEach((slot,i)=>{
-    if(i) rule(y - 13*s);
+    if(!String(slot.t||"").trim()) return;
+    if(shown) rule(y - 13*s);
     /* red number badge */
     if(draw){
       c.fillStyle=RED; rr(c, L, y-13*s, 25*s, 19*s, 5*s); c.fill();
       c.fillStyle="#fff"; c.font="700 "+(13*s).toFixed(2)+"px "+FONT; c.textAlign="center";
-      c.fillText(String(i+1), L+12.5*s, y+1.5*s);
+      c.fillText(String(shown+1), L+12.5*s, y+1.5*s);
     }
+    shown++;
     /* dish name */
     c.font="700 "+(16.5*s).toFixed(2)+"px "+FONT;
-    const nm = slot.t || "X";
-    wrap(c, nm, TXTW).forEach(l=>{ if(draw){ c.fillStyle=RED; c.textAlign="left"; c.fillText(l, L+IND, y); } y += 21*s; });
+    wrap(c, slot.t, TXTW).forEach(l=>{ if(draw){ c.fillStyle=RED; c.textAlign="left"; c.fillText(l, L+IND, y); } y += 21*s; });
     /* slot qualifier */
     const sub = i===2 ? "(VEGAN MAIN & VEGETARIAN SIDE)" : (i===3 ? "(SALAD)" : null);
     if(sub){ c.font="700 "+(11*s).toFixed(2)+"px "+FONT;
