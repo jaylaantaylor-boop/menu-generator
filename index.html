@@ -2907,6 +2907,8 @@ function buildWeekList(){
     row.appendChild(go); row.appendChild(del); list.appendChild(row);
   });
 
+  /* The backup panel counts planned weeks, so it goes stale as they are made. */
+  if(typeof buildBackupState==="function") buildBackupState();
   document.getElementById("wbToggle").onclick=toggleWeekList;
   document.getElementById("wbNew").onclick=()=>{ closeWeekList(); newWeek(); };
   document.getElementById("wbDup").onclick=()=>{ closeWeekList(); duplicateWeek(); };
@@ -6359,11 +6361,19 @@ function wirePhotos(){
 /* ================= backup =================
    One file holding every namespaced key this app owns, so a cleared browser is
    an inconvenience rather than the loss of a season of typed-in dish costs. */
-const BACKUP_APP = "menu-generator", BACKUP_V = 1;
+const BACKUP_APP = "menu-generator", BACKUP_V = 2;   /* v2 carries the week list */
 
 function backupCore(){
+  /* Every week he has planned, not only the one that happens to be open.
+     Miss this and a restore quietly loses five of his six weeks. */
+  const weekData = {};
+  WEEKS.forEach(w=>{
+    const st = (w.key===state.weekStart) ? state : load(WEEK_KEY(w.key), null);
+    if(st && st.days) weekData[w.key] = st;
+  });
   return {app:BACKUP_APP, v:BACKUP_V, at:new Date().toISOString(),
-          lib:LIB, hist:HIST, meta:META, state:state};
+          lib:LIB, hist:HIST, meta:META, state:state,
+          weeks:WEEKS, weekData:weekData};
 }
 function backupFilename(){
   const d=new Date(), p=n=>String(n).padStart(2,"0");
@@ -6416,11 +6426,16 @@ function doRestore(){
 
       const when = doc.at ? new Date(doc.at).toLocaleString() : "an unknown date";
       const nPhotos = Array.isArray(doc.photos) ? doc.photos.length : 0;
+      const nWeeks  = Array.isArray(doc.weeks) ? doc.weeks.length : 0;
       if(!confirm(
         "Restore the backup from "+when+"?\n\n"
         + "This REPLACES what is in this browser now:\n"
         + "  · the dish library\n  · ratings, difficulty and every cost per serving\n"
         + "  · prices, headcounts and percentages\n  · menu history\n"
+        + (nWeeks ? "  · every planned week ("+nWeeks+" in the backup replace the "
+                    + WEEKS.length + " here)\n"
+                  : "  · NOTE: this backup predates the week list, so the weeks planned\n"
+                    + "    in this browser are left exactly as they are\n")
         + (nPhotos ? "  · all photos ("+nPhotos+" in the backup replace the ones here)\n" : "")
         + "\nAnything not in the backup is lost. Carry on?")) return;
 
@@ -6434,6 +6449,31 @@ function doRestore(){
         if(doc.hist)  { HIST = doc.hist; save(K.hist, HIST); }
         if(doc.meta)  { META = doc.meta; save(K.meta, META); }
         if(doc.state) { doc.state.libVersion = LIB_BASE_VERSION; save(K.state, doc.state); }
+        /* The week list, if the backup is new enough to have one.  An older
+           backup leaves this browser's weeks alone rather than wiping them —
+           losing weeks to a restore that never knew about them would be the
+           worst possible outcome. */
+        if(nWeeks && doc.weekData){
+          WEEKS.forEach(w=>{ try{ localStorage.removeItem(WEEK_KEY(w.key)); }catch(e){} });
+          WEEKS = [];
+          doc.weeks.forEach(w=>{
+            const st = doc.weekData[w.key];
+            if(!st) return;
+            save(WEEK_KEY(w.key), st);
+            WEEKS.push(w);
+          });
+          save(K.weeks, WEEKS);
+        } else if(doc.state && doc.state.weekStart){
+          /* An old backup: make sure the week it restored is at least on the
+             list, so it is reachable from the picker after the reload. */
+          if(!WEEKS.some(w=>w.key===doc.state.weekStart)){
+            save(WEEK_KEY(doc.state.weekStart), doc.state);
+            WEEKS.push({key:doc.state.weekStart,
+                        label:doc.state.dateLabel||doc.state.weekStart, needs:"",
+                        updatedAt:new Date().toISOString()});
+            sortWeeks(); save(K.weeks, WEEKS);
+          }
+        }
       }catch(e){ toast("Restore failed: "+(e.message||e)); return; }
 
       if(!nPhotos){ toast("Restored — reloading"); setTimeout(()=>location.reload(), 700); return; }
@@ -6464,6 +6504,7 @@ function buildBackupState(){
     n + DAYS.reduce((m,d)=>m + ((LIB[d]&&LIB[d][k])||[]).length, 0), 0);
   if(dishes) holding.push(dishes+" dishes");
   if(HIST.length) holding.push(HIST.length+" saved week"+(HIST.length===1?"":"s"));
+  if(WEEKS.length) holding.push(WEEKS.length+" planned week"+(WEEKS.length===1?"":"s"));
 
   let cls="warn", msg;
   const list = holding.length>1
