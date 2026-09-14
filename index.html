@@ -161,6 +161,67 @@ button.go:hover{filter:brightness(1.1)}
 .wbneed2.ok{color:#2E7D46;background:transparent}
 .wbx{border:0;background:none;color:#c33;font-size:15px;line-height:1;padding:0 9px;border-radius:8px}
 .wbx:hover{background:#fdeaea}
+/* ---- look it up ---- */
+.lookchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.lookchips button{border:1px solid #d8d8de;background:#fff;border-radius:20px;padding:5px 11px;
+  font-size:11.5px;font-weight:700;color:#3a3a44}
+.lookchips button:hover{background:#f2f5fb;border-color:#b6cdf5}
+.lookres{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.lookblock{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.lookdish{background:#fafafc;padding:9px 12px;border-bottom:1px solid var(--line);
+  font-size:12.5px;font-weight:800;color:var(--red);letter-spacing:.3px}
+.lookdish .al{display:block;font-size:9.5px;font-weight:800;color:#9a9aa4;letter-spacing:.35px;margin-top:3px}
+.lookhit{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;text-align:left;
+  padding:9px 12px;border:0;border-bottom:1px solid var(--line);background:none;min-height:44px}
+.lookhit:last-of-type{border-bottom:none}
+.lookhit:hover{background:#f6f8fd}
+.lookhit .wk{font-size:12.5px;font-weight:800;color:#111;letter-spacing:.3px;min-width:112px}
+.looktag{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+  border-radius:20px;padding:3px 8px;white-space:nowrap}
+.looktag.planned{background:#EEF3FF;color:#2F4C8F}
+.looktag.served{background:#EDF6F0;color:#2E7D46}
+.lookhit .where{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.3px}
+.lookhit .num{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.lookhit .num b{color:#111}
+.lookhit .caret{color:var(--muted);font-size:11px;flex:0 0 auto}
+.lookdet{border-top:1px solid var(--line);background:#fbfbfd;padding:13px}
+.lookdet[hidden]{display:none}
+.lookgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+@media(max-width:1000px){.lookgrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:620px){.lookgrid{grid-template-columns:1fr}}
+.lookcol{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.lookcol h4{margin:0;background:#111;color:#fff;font-size:10px;letter-spacing:2px;text-align:center;padding:6px;font-weight:600}
+.lookcol ol{margin:0;padding:7px 8px 9px;list-style:none;display:flex;flex-direction:column;gap:6px}
+.lookcol li{font-size:10.5px;line-height:1.3}
+.lookcol .sl{font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.4px;display:block}
+.lookcol .nm{font-weight:800;color:var(--red);display:block}
+.lookcol .qty{font-size:9.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.lookcol .qty b{color:#111}
+.lookcol .closed{font-size:10px;color:var(--muted);padding:8px;font-style:italic}
+.lookfoot{margin-top:auto;border-top:1px solid var(--line);padding:5px 8px;font-size:9.5px;
+  color:var(--muted);letter-spacing:.3px;font-variant-numeric:tabular-nums}
+.lookfoot b{color:#111}
+.lookmoney{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+.lookmoney div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 11px;
+  font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+.lookmoney div b{display:block;font-size:14px;letter-spacing:0;color:#111;margin-top:2px;
+  text-transform:none;font-variant-numeric:tabular-nums}
+.lookmoney div.good b{color:#2E7D46}
+.lookmoney div.bad b{color:var(--red)}
+.lookopen{margin-top:10px;border:1px solid #d3d3d9;background:#fff;border-radius:8px;padding:7px 12px;
+  font-size:12px;font-weight:700}
+.lookopen:disabled{opacity:.45;cursor:not-allowed}
+.looktable{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.looktable th{text-align:left;font-size:9.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);
+  padding:8px 10px;border-bottom:1px solid var(--line);font-weight:800}
+.looktable td{padding:9px 10px;border-bottom:1px solid var(--line)}
+.looktable tr:last-child td{border-bottom:none}
+.looktable tr.tot td{font-weight:800;color:#111;background:#fafafc}
+.looktable td.r,.looktable th.r{text-align:right}
+.looktable .wkn{font-weight:800;color:#111}
+.looktable tr[data-k]{cursor:pointer}
+.looktable tr[data-k]:hover td{background:#f6f8fd}
+.looknone{padding:14px 2px;color:var(--muted);font-size:13px}
 @media(max-width:640px){
   .weekbar{gap:7px;padding:8px 10px}
   .wbacts{margin-left:0;width:100%}
@@ -768,6 +829,20 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
         <button id="importLib">Import library (JSON)</button>
         <button id="resetLib" style="color:#c33">Reset library to original</button>
       </div>
+    </div>
+  </details>
+
+  <details class="panel" id="lookPanel">
+    <summary>Look it up — every week, planned and served</summary>
+    <div class="body">
+      <p class="note" style="margin:12px 0 0">Type a dish to find which weeks it ran in, or a month to see those weeks&rsquo; numbers. Open any result to get the whole week &mdash; dishes, headcount and how much of each thing to make.</p>
+      <div class="photobar" style="margin-top:10px">
+        <input type="text" id="lookQ" placeholder="A dish, or a month — cheesesteak · lasagna · october · 2026-08" style="flex:1;min-width:220px">
+        <button id="lookClear">Clear</button>
+      </div>
+      <div class="lookchips" id="lookChips"></div>
+      <p class="note" id="lookCount" style="margin:8px 0 0"></p>
+      <div class="lookres" id="lookRes"></div>
     </div>
   </details>
 
@@ -4100,6 +4175,256 @@ function wireLibSearch(){
   if(b) b.onclick=()=>{ i.value=""; LIB_Q=""; buildLib(); i.focus(); };
 }
 
+
+/* ================= look it up =================
+   "When did we last run the lasagna, and how did that week go" is a question
+   about the whole record, not about the week that happens to be open.  This
+   reads both sides of it — the weeks he has planned, and the weeks saved to
+   history — and answers in whichever shape the question was asked: a dish gets
+   dishes, a month gets a table of weeks. */
+const LOOK_MONTHS=["january","february","march","april","may","june","july",
+                   "august","september","october","november","december"];
+const LOOK_MON3  =["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+const LOOK_DAYS  = DAYS.concat(["sat"]);
+const LOOK_SLOT  = TENANT.week.slots.map(s=>s.short);
+const LOOK_SAT_SLOT = ["#1","#2 VEGAN","#3 SALAD"];
+
+/* One row per week, whether it is planned, served, or both.  A week he has
+   saved to history AND still has planned shows once, marked served — it ran —
+   but it can still be opened, because the plan is still there. */
+function lookupWeeks(){
+  const by = new Map();
+  WEEKS.forEach(w=>{
+    const st = (w.key===state.weekStart) ? state : load(WEEK_KEY(w.key), null);
+    if(!st || !st.days) return;
+    by.set(w.key, {key:w.key, label:w.label||autoLabel(w.key), planned:st, hist:null});
+  });
+  HIST.forEach(h=>{
+    const e = by.get(h.week);
+    if(e) e.hist = h;
+    else by.set(h.week, {key:h.week, label:h.label||h.week, planned:null, hist:h});
+  });
+  const out = Array.from(by.values());
+  out.forEach(e=>{ e.kind = e.hist ? "served" : "planned"; });
+  out.sort((a,b)=> a.key<b.key ? 1 : a.key>b.key ? -1 : 0);   /* newest first */
+  return out;
+}
+/* The dish names for one day, from whichever side of the week we have. */
+function lookDishes(e, d){
+  if(d==="sat"){
+    if(e.planned) return [1,2,3].map(i=>e.planned.sat["m"+i]||"");
+    return ((e.hist&&e.hist.sat)||[]).slice(0,3);
+  }
+  if(e.planned && e.planned.days[d]) return e.planned.days[d].slots.map(s=>s.t||"");
+  if(e.hist && e.hist.days) return (e.hist.days[d]||[]).slice();
+  return [];
+}
+/* Something ratesFor()/projectDay() can read, so a past week's counts come out
+   of exactly the same maths as the Production sheet. */
+function lookSource(e){
+  if(e.planned) return e.planned;
+  const r = e.hist && e.hist.run;
+  return r ? {heads:r.heads||{}, rates:r.rates||RATE_DEFAULTS, dayRates:r.dayRates||{}}
+           : {heads:{}, rates:RATE_DEFAULTS, dayRates:{}};
+}
+function lookClosed(e, d){
+  if(e.planned) return d==="sat" ? !!e.planned.sat.closed : !!e.planned.days[d].closed;
+  return !lookDishes(e,d).filter(Boolean).length;
+}
+function lookPeople(e){
+  const r = e.hist && e.hist.run && e.hist.run.result;
+  if(r && r.people) return r.people;
+  const src = lookSource(e);
+  return LOOK_DAYS.reduce((n,d)=> n + (lookClosed(e,d) ? 0 : (src.heads[d]||0)), 0);
+}
+function lookResult(e){ return (e.hist && e.hist.run && e.hist.run.result) || null; }
+
+/* ---- what kind of question is this? ---- */
+function lookDateWeeks(q){
+  const t = q.trim().toLowerCase(); if(t.length<3) return null;
+  const word = (t.match(/[a-z]+/)||[""])[0];
+  let mi = word ? LOOK_MONTHS.findIndex(m=>m.indexOf(word)===0) : -1;
+  if(mi<0 && word) mi = LOOK_MON3.indexOf(word);
+  const yr = (t.match(/\b(20\d\d)\b/)||[])[1];
+  const iso = /^\d{4}-\d{2}/.test(t) ? t.slice(0,7) : "";
+  if(mi<0 && !yr && !iso) return null;
+  return lookupWeeks().filter(e=>{
+    const d = parseISO(e.key);
+    if(mi>=0 && d.getMonth()!==mi) return false;
+    if(yr && String(d.getFullYear())!==yr) return false;
+    if(iso && e.key.indexOf(iso)!==0) return false;
+    return true;
+  });
+}
+function lookDishBlocks(q){
+  const qw = splitWords(q); if(!qw.length) return [];
+  const byDish = new Map();
+  lookupWeeks().forEach(e=>LOOK_DAYS.forEach(d=>{
+    lookDishes(e,d).forEach((n,slot)=>{
+      if(!n) return;
+      const up = String(n).trim().toUpperCase();
+      if(!qw.every(x=>up.indexOf(x)>=0)) return;
+      if(!byDish.has(up)) byDish.set(up, {name:up, hits:[]});
+      byDish.get(up).hits.push({e, day:d, slot});
+    });
+  }));
+  return Array.from(byDish.values())
+    .sort((a,b)=> b.hits.length-a.hits.length || a.name.localeCompare(b.name));
+}
+
+/* ---- the whole week, unfolded ---- */
+function lookWeekDetail(e){
+  const src = lookSource(e);
+  const cols = LOOK_DAYS.map(d=>{
+    const closed = lookClosed(e,d);
+    const heads  = src.heads[d]||0;
+    const p = closed ? null : projectDay(heads, ratesFor(d, src), d==="sat"?{mergeE2:true}:null);
+    const keys = d==="sat" ? ["e1","veg","salad"] : TENANT.week.slots.map(x=>x.key);
+    const labs = d==="sat" ? LOOK_SAT_SLOT : LOOK_SLOT;
+    const names = lookDishes(e,d);
+    const items = closed
+      ? '<div class="closed">Closed</div>'
+      : "<ol>" + names.map((n,i)=>{
+          if(!n) return "";
+          const q = p ? p.counts[keys[i]] : 0;
+          return "<li><span class='sl'>"+esc(labs[i]||"")+"</span><span class='nm'>"+esc(n)+"</span>"
+            + "<span class='qty'>make <b>"+(q?q.toLocaleString():"&mdash;")+"</b></span></li>";
+        }).join("") + "</ol>";
+    return '<div class="lookcol"><h4>'+(DAYNAME[d]||d.toUpperCase())+"</h4>"+items
+      + '<div class="lookfoot">'+(closed ? "&nbsp;" : "Headcount <b>"+(heads?heads.toLocaleString():"not set")+"</b>")+"</div></div>";
+  }).join("");
+
+  const r = lookResult(e);
+  let money;
+  if(r){
+    const net = r.net||0;
+    money = "<div><span>People</span><b>"+(r.people||0).toLocaleString()+"</b></div>"
+      + "<div><span>Revenue</span><b>"+fmtMoney(r.revenue||0)+"</b></div>"
+      + "<div><span>Food</span><b>"+fmtMoney(r.food||0)+"</b></div>"
+      + '<div class="'+(net<0?"bad":"good")+'"><span>Kept</span><b>'+fmtMoney(net)+"</b></div>";
+  } else if(e.hist){
+    /* It ran, but before the app started keeping the numbers — the history
+       table says the same thing, and guessing would be worse than saying so. */
+    money = "<div><span>Numbers</span><b>saved before the app kept them</b></div>";
+  } else {
+    const ppl = lookPeople(e);
+    money = "<div><span>Planned for</span><b>"
+      + (ppl ? ppl.toLocaleString()+" people" : "no headcount yet") + "</b></div>"
+      + '<div><span>Numbers</span><b>not saved to history yet</b></div>';
+  }
+  return '<div class="lookgrid">'+cols+'</div><div class="lookmoney">'+money+"</div>";
+}
+
+let LOOK_Q = "";
+function buildLookup(){
+  const res = document.getElementById("lookRes"), cnt = document.getElementById("lookCount");
+  if(!res) return;
+  res.innerHTML = ""; 
+  const all = lookupWeeks();
+  if(!LOOK_Q){
+    const served = all.filter(e=>e.kind==="served").length;
+    cnt.innerHTML = "<b>"+all.length+"</b> week"+(all.length===1?"":"s")+" on file &mdash; "
+      + served+" served, "+(all.length-served)+" planned. Type a dish or a month above.";
+    return;
+  }
+
+  const dated = lookDateWeeks(LOOK_Q);
+  if(dated){
+    if(!dated.length){ cnt.textContent=""; 
+      res.innerHTML = '<div class="looknone">No weeks in &ldquo;'+esc(LOOK_Q)+"&rdquo;.</div>"; return; }
+    cnt.innerHTML = "<b>"+dated.length+"</b> week"+(dated.length===1?"":"s")+" in &ldquo;"+esc(LOOK_Q)+"&rdquo;.";
+    const tot = {people:0, revenue:0, food:0, net:0}; let any=false;
+    let rows = dated.map(e=>{
+      const r = lookResult(e);
+      if(r){ any=true; tot.people+=r.people||0; tot.revenue+=r.revenue||0;
+             tot.food+=r.food||0; tot.net+=r.net||0; }
+      const ppl = lookPeople(e);
+      return '<tr data-k="'+esc(e.key)+'"><td class="wkn">'+esc(e.label)+"</td>"
+        + '<td><span class="looktag '+e.kind+'">'+e.kind+"</span></td>"
+        + '<td class="r">'+(ppl?ppl.toLocaleString():"&mdash;")+"</td>"
+        + '<td class="r">'+(r?fmtMoney(r.revenue||0):"&mdash;")+"</td>"
+        + '<td class="r">'+(r?fmtMoney(r.food||0):"&mdash;")+"</td>"
+        + '<td class="r">'+(r?fmtMoney(r.net||0):"&mdash;")+"</td></tr>";
+    }).join("");
+    if(any) rows += '<tr class="tot"><td>Total served</td><td></td><td class="r">'
+      + tot.people.toLocaleString()+'</td><td class="r">'+fmtMoney(tot.revenue)
+      + '</td><td class="r">'+fmtMoney(tot.food)+'</td><td class="r">'+fmtMoney(tot.net)+"</td></tr>";
+    res.innerHTML = '<div class="plot"><table class="looktable"><tr><th>Week</th><th></th>'
+      + '<th class="r">People</th><th class="r">Revenue</th><th class="r">Food</th>'
+      + '<th class="r">Kept</th></tr>'+rows+"</table></div>";
+    res.querySelectorAll("tr[data-k]").forEach(tr=>{
+      tr.onclick=()=>{ const e = all.find(x=>x.key===tr.dataset.k); if(!e) return;
+        cnt.innerHTML = esc(e.label)+" &mdash; "+e.kind;
+        res.innerHTML = '<div class="lookblock"><div class="lookdish">'+esc(e.label)
+          + '</div><div class="lookdet">'+lookWeekDetail(e)+"</div></div>";
+        lookWireOpen(res, e); };
+    });
+    return;
+  }
+
+  const blocks = lookDishBlocks(LOOK_Q);
+  if(!blocks.length){ cnt.textContent="";
+    res.innerHTML = '<div class="looknone">Nothing matches &ldquo;'+esc(LOOK_Q)+"&rdquo;.</div>"; return; }
+  const weeksHit = blocks.reduce((n,b)=>n+b.hits.length,0);
+  cnt.innerHTML = "<b>"+blocks.length+"</b> dish"+(blocks.length===1?"":"es")
+    + " across <b>"+weeksHit+"</b> week"+(weeksHit===1?"":"s")+".";
+  blocks.forEach(b=>{
+    const block = el("div","lookblock");
+    const look = lookupDish(b.name);
+    const al = look && look.a ? look.a : "";
+    block.appendChild(el("div","lookdish", esc(b.name)
+      + (al ? '<span class="al">'+(al.toUpperCase()==="NONE"?"No common allergens":"Contains: "+esc(al))+"</span>" : "")));
+    b.hits.forEach(h=>{
+      const r = lookResult(h.e), ppl = lookPeople(h.e);
+      const labs = h.day==="sat" ? LOOK_SAT_SLOT : LOOK_SLOT;
+      const row = el("button","lookhit",
+        '<span class="caret">&#9656;</span><span class="wk">'+esc(h.e.label)+"</span>"
+        + '<span class="looktag '+h.e.kind+'">'+h.e.kind+"</span>"
+        + '<span class="where">'+(DAYNAME[h.day]||h.day.toUpperCase())+" &middot; "+esc(labs[h.slot]||"")+"</span>"
+        + '<span class="num">'+(ppl ? "<b>"+ppl.toLocaleString()+"</b> people" : "no headcount yet")
+        + (r ? " &middot; <b>"+fmtMoney(r.net||0)+"</b> kept" : "")+"</span>");
+      const det = el("div","lookdet"); det.hidden = true;
+      row.onclick=()=>{
+        det.hidden = !det.hidden;
+        row.querySelector(".caret").innerHTML = det.hidden ? "&#9656;" : "&#9662;";
+        if(!det.innerHTML){ det.innerHTML = lookWeekDetail(h.e); lookWireOpen(det, h.e); }
+      };
+      block.appendChild(row); block.appendChild(det);
+    });
+    res.appendChild(block);
+  });
+}
+/* Only a week that is still planned can be opened — history is a record. */
+function lookWireOpen(root, e){
+  const b = el("button","lookopen", e.planned
+    ? "Open this week in the builder" : "Served week &mdash; a record, not editable");
+  b.disabled = !e.planned;
+  if(!e.planned) b.title = "This week is in history. Reuse it from the Menu history panel if you want its dishes back.";
+  b.onclick = ()=>{ openWeek(e.key);
+    const p=document.getElementById("lookPanel"); if(p) p.open=false;
+    window.scrollTo({top:0, behavior:"smooth"}); };
+  const holder = root.querySelector(".lookmoney") || root;
+  holder.parentNode.insertBefore(b, holder.nextSibling);
+}
+function wireLookup(){
+  const i=document.getElementById("lookQ"), c=document.getElementById("lookClear"),
+        chips=document.getElementById("lookChips");
+  if(!i) return;
+  i.oninput=()=>{ LOOK_Q=i.value.trim(); buildLookup(); };
+  if(c) c.onclick=()=>{ i.value=""; LOOK_Q=""; buildLookup(); i.focus(); };
+  if(chips && !chips.children.length){
+    ["cheesesteak","lasagna","tacos","salad","this month"].forEach(t=>{
+      const b=el("button",null,t);
+      b.onclick=()=>{
+        const v = t==="this month" ? LOOK_MONTHS[new Date().getMonth()] : t;
+        i.value=v; LOOK_Q=v; buildLookup(); i.focus();
+      };
+      chips.appendChild(b);
+    });
+  }
+  buildLookup();
+}
+
 /* ================= history panel ================= */
 function buildHist(){
   const b=document.getElementById("histBody");
@@ -7041,7 +7366,7 @@ function init(){
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
   buildDishIndex();
   migrateWeeks();
-  wire(); buildGrid(); buildCostList(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); buildWeekList(); wireSaveAlert(); wireOfflineChip(); registerOffline();
+  wire(); buildGrid(); buildCostList(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); wireLookup(); buildHist(); wireBackup(); buildPreflight(); render(); buildWeekList(); wireSaveAlert(); wireOfflineChip(); registerOffline();
   wirePhotos();
   wireImport();
   /* the photo count on each card needs the index, which only IndexedDB can
