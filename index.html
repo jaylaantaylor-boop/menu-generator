@@ -122,6 +122,51 @@ button.go:hover{filter:brightness(1.1)}
 .satlab{display:flex;align-items:center;gap:6px;justify-content:space-between}
 .satlab button{padding:1px 6px;font-size:12px;line-height:1.5;border-radius:5px;background:#f3f3f6}
 .satlab button:disabled{opacity:.4;cursor:not-allowed}
+/* ---- the week bar ---- */
+.weekbar{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  box-shadow:var(--shadow);padding:9px 12px;margin-bottom:12px}
+.wbtoggle{display:flex;align-items:center;gap:8px;border:1px solid #d3d3d9;border-radius:8px;
+  background:#fff;padding:6px 11px;font-weight:700;max-width:100%;min-width:0}
+.wbtoggle .wbnow{color:var(--red);letter-spacing:.4px;font-size:13px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wbtoggle .wbcount{font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--muted);background:#f1f1f5;border-radius:20px;padding:3px 8px;flex:0 0 auto}
+.wbcaret{color:var(--muted);font-size:11px;transition:transform .12s}
+.weekbar.open .wbcaret{transform:rotate(180deg)}
+.wbneed{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  color:#8A6A12;background:#FDF6E3;border:1px solid #ecd9a8;border-radius:20px;padding:4px 9px}
+.wbneed.ok{color:#2E7D46;background:#EDF6F0;border-color:#cfe6d8}
+.wbsaved{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  color:#2E7D46;opacity:0;transition:opacity .18s}
+.wbsaved.show{opacity:1}
+.wbacts{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.wbacts button{padding:6px 10px;font-size:12px}
+#wbDel{color:#c33}
+.wblist{position:absolute;left:12px;top:100%;z-index:70;margin-top:4px;min-width:320px;max-width:min(520px,calc(100vw - 40px));
+  background:#fff;border:1px solid #c9c9d2;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.18);
+  max-height:min(60vh,420px);overflow:auto;overscroll-behavior:contain;padding:4px}
+.wblist[hidden]{display:none}
+.wbrow{display:flex;align-items:stretch;gap:2px;border-radius:8px}
+.wbrow:hover{background:#f2f5fb}
+.wbrow.on{background:#f6f6f9}
+.wbgo{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:none;
+  border-radius:8px;padding:9px 8px;min-height:44px;text-align:left}
+.wbdot{width:7px;height:7px;border-radius:50%;background:#d3d3d9;flex:0 0 auto}
+.wbrow.on .wbdot{background:var(--red)}
+.wbname{font-size:12.5px;font-weight:800;letter-spacing:.3px;color:#111;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wbneed2{margin-left:auto;flex:0 0 auto;font-size:9.5px;font-weight:800;letter-spacing:.4px;
+  text-transform:uppercase;color:#8A6A12;background:#FDF6E3;border-radius:20px;padding:4px 8px}
+.wbneed2.ok{color:#2E7D46;background:transparent}
+.wbx{border:0;background:none;color:#c33;font-size:15px;line-height:1;padding:0 9px;border-radius:8px}
+.wbx:hover{background:#fdeaea}
+@media(max-width:640px){
+  .weekbar{gap:7px;padding:8px 10px}
+  .wbacts{margin-left:0;width:100%}
+  .wbacts button{flex:1}
+  .wblist{left:10px;right:10px;min-width:0;max-width:none}
+}
 .rate{display:flex;flex-direction:column;gap:4px;margin-top:2px}
 .stars{display:flex;align-items:center;gap:1px}
 .stars .st{border:0;background:none;padding:0 1px;font-size:15px;line-height:1;color:#d3d3d9;cursor:pointer}
@@ -540,6 +585,21 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
 </header>
 
 <div class="wrap">
+  <div class="weekbar" id="weekBar">
+    <button class="wbtoggle" id="wbToggle" aria-expanded="false" title="Every week you have planned">
+      <span class="wbcaret">&#9662;</span>
+      <span class="wbnow" id="wbNow"></span>
+      <span class="wbcount" id="wbCount"></span>
+    </button>
+    <span class="wbneed" id="wbNeed"></span>
+    <span class="wbsaved" id="wbSaved">Saved</span>
+    <div class="wbacts">
+      <button id="wbNew" title="Start the week after the last one">&#65291; New week</button>
+      <button id="wbDup" title="Copy this week's dishes and numbers into the next one">Duplicate</button>
+      <button id="wbDel" title="Delete the week you are on">Delete</button>
+    </div>
+    <div class="wblist" id="wbList" hidden></div>
+  </div>
   <div class="grid" id="dayGrid"></div>
 
   <details class="panel" id="satPanel">
@@ -1879,7 +1939,8 @@ function applyDesc(lib){
 /* ================= storage (namespaced: shares an origin with the
    inventory PWAs if this is ever hosted on GitHub Pages) ========= */
 const K = {lib:  TENANT.storagePrefix+"lib",   hist: TENANT.storagePrefix+"history",
-           state:TENANT.storagePrefix+"state", meta: TENANT.storagePrefix+"meta"};
+           state:TENANT.storagePrefix+"state", meta: TENANT.storagePrefix+"meta",
+           weeks:TENANT.storagePrefix+"weeks"};
 const load = (k,d)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } };
 /* A silent write failure is the worst outcome here: you would keep typing dish
    costs, see no error, and lose the lot on reload.  So say so, loudly, and keep
@@ -1978,20 +2039,6 @@ const PROJ_DAYS = TENANT.week.days.concat(["sat"]);
    kitchen makes exactly the headcount.  The field stays because a different
    job might want one. */
 const RATE_DEFAULTS = TENANT.defaults.rates;
-if(!state.heads || typeof state.heads!=="object") state.heads={};
-/* 1600 a day is the normal run for this contract, so that is the starting
-   point rather than a zero he would have to fill in six times. */
-PROJ_DAYS.forEach(d=>{ if(typeof state.heads[d]!=="number") state.heads[d]=TENANT.defaults.headcount; });
-state.rates = Object.assign({}, RATE_DEFAULTS, state.rates||{});
-/* A day either follows the week's percentages — stored as null — or carries a
-   full set of its own.  Kept as a whole set rather than a diff, so that editing
-   the week never silently moves a day that has already been tuned by hand.
-   Added later than state.rates, so an existing saved state has neither. */
-if(!state.dayRates || typeof state.dayRates!=="object") state.dayRates={};
-PROJ_DAYS.forEach(d=>{
-  const o = state.dayRates[d];
-  state.dayRates[d] = (o && typeof o==="object") ? Object.assign({}, RATE_DEFAULTS, o) : null;
-});
 
 /* What it sells for and what it costs.  All zero to start: nobody but the
    owner knows these numbers, and a guessed price is worse than a blank one. */
@@ -1999,21 +2046,210 @@ PROJ_DAYS.forEach(d=>{
    recorded" and 0 means "none left" — they are very different answers and the
    difference has to survive round-tripping. */
 const blankActualDay = ()=>({people:null, n:{}});
-function ensureActuals(){
-  if(!state.actual || typeof state.actual!=="object") state.actual={mode:"left"};
-  if(state.actual.mode!=="left" && state.actual.mode!=="taken") state.actual.mode="left";
+function ensureActuals(st){
+  st = st || state;
+  if(!st.actual || typeof st.actual!=="object") st.actual={mode:"left"};
+  if(st.actual.mode!=="left" && st.actual.mode!=="taken") st.actual.mode="left";
   PROJ_DAYS.forEach(d=>{
-    if(!state.actual[d] || typeof state.actual[d]!=="object") state.actual[d]=blankActualDay();
-    if(typeof state.actual[d].n!=="object" || !state.actual[d].n) state.actual[d].n={};
-    if(state.actual[d].people!=null && !(state.actual[d].people>=0)) state.actual[d].people=null;
+    if(!st.actual[d] || typeof st.actual[d]!=="object") st.actual[d]=blankActualDay();
+    if(typeof st.actual[d].n!=="object" || !st.actual[d].n) st.actual[d].n={};
+    if(st.actual[d].people!=null && !(st.actual[d].people>=0)) st.actual[d].people=null;
   });
 }
 
 const MONEY_DEFAULTS = TENANT.defaults.money;   /* set price per head on the contract */
 const UNIT_DEFAULTS  = {side:0, chips:0, dessert:0, fruit:0, drinks:0};
-state.money = Object.assign({}, MONEY_DEFAULTS, state.money||{});
-state.money.unit = Object.assign({}, UNIT_DEFAULTS, state.money.unit||{});
-ensureActuals();
+/* Every week goes through here — the one loaded at boot, one opened from the
+   week list, and a brand new blank.  Fields were added to a week over several
+   releases, so a week saved by an older copy of the app is missing some of
+   them; this is the single place that fills them in. */
+function normalizeWeek(st){
+  if(!st || typeof st!=="object") st = {};
+  if(!st.weekStart) st.weekStart = toISO(nextMonday(new Date()));
+  if(!st.days || typeof st.days!=="object") st.days = {};
+  DAYS.forEach(d=>{ if(!st.days[d] || typeof st.days[d]!=="object") st.days[d]=blankDay(); });
+  if(!st.sat || typeof st.sat!=="object")
+    st.sat = Object.assign({d1:"",a1:"",d2:"",a2:"",d3:"",a3:""}, TENANT.week.saturday);
+  if(typeof st.title!=="string")    st.title="MENU";
+  if(typeof st.barStyle!=="string") st.barStyle="qr";
+
+  if(!st.heads || typeof st.heads!=="object") st.heads={};
+  /* 1600 a day is the normal run for this contract, so that is the starting
+     point rather than a zero he would have to fill in six times. */
+  PROJ_DAYS.forEach(d=>{ if(typeof st.heads[d]!=="number") st.heads[d]=TENANT.defaults.headcount; });
+  st.rates = Object.assign({}, RATE_DEFAULTS, st.rates||{});
+  /* A day either follows the week's percentages — stored as null — or carries a
+     full set of its own.  Kept as a whole set rather than a diff, so that editing
+     the week never silently moves a day that has already been tuned by hand. */
+  if(!st.dayRates || typeof st.dayRates!=="object") st.dayRates={};
+  PROJ_DAYS.forEach(d=>{
+    const o = st.dayRates[d];
+    st.dayRates[d] = (o && typeof o==="object") ? Object.assign({}, RATE_DEFAULTS, o) : null;
+  });
+
+  st.money = Object.assign({}, MONEY_DEFAULTS, st.money||{});
+  st.money.unit = Object.assign({}, UNIT_DEFAULTS, st.money.unit||{});
+  ensureActuals(st);
+
+  if(!st.dateLabel) st.dateLabel = autoLabel(st.weekStart);
+  [1,2,3].forEach(i=>{ const e=DESC[st.sat["m"+i]];
+    if(e){ if(!st.sat["d"+i]) st.sat["d"+i]=e[0]; if(!st.sat["a"+i]) st.sat["a"+i]=e[1]; } });
+  return st;
+}
+/* A week nobody has touched yet, for the New week button. */
+function blankWeek(iso){
+  const k = iso || toISO(nextMonday(new Date()));
+  return normalizeWeek({weekStart:k, dateLabel:autoLabel(k), title:"MENU", barStyle:"qr",
+    days:{mon:blankDay(),tue:blankDay(),wed:blankDay(),thu:blankDay(),fri:blankDay()},
+    sat: Object.assign({d1:"",a1:"",d2:"",a2:"",d3:"",a3:""}, TENANT.week.saturday),
+    libVersion: LIB_BASE_VERSION});
+}
+normalizeWeek(state);
+
+/* ================= the week list =================
+   The builder still holds ONE week at a time, and `state` is still that week —
+   which is why every panel below carries on reading it unchanged.  What is new
+   is that the other weeks are kept beside it, one storage entry each, so a week
+   can be put down once its PNG is downloaded and picked back up later to have
+   its headcount filled in.
+
+   A week IS its Monday.  That is its identity and its storage key, so two weeks
+   can never share a date. */
+const WEEK_KEY = k => TENANT.storagePrefix + "week_" + k;
+let WEEKS = load(K.weeks, null);
+if(!Array.isArray(WEEKS)) WEEKS = [];
+
+function isClosedIn(st, d){ return d==="sat" ? !!(st.sat&&st.sat.closed) : !!(st.days[d]&&st.days[d].closed); }
+/* The first thing a week is still missing, in the order it would stop him
+   sending the menu out.  Worked out when the week is saved and kept on its row,
+   so the list stays cheap however many weeks there are. */
+function weekNeeds(st){
+  let empty = 0;
+  DAYS.forEach(d=>{
+    const day = st.days[d]; if(!day || day.closed || day.special) return;
+    day.slots.forEach(s=>{ if(!String(s&&s.t||"").trim()) empty++; });
+  });
+  if(empty) return empty+" dish"+(empty===1?"":"es")+" empty";
+  const blank = PROJ_DAYS.filter(d=>!isClosedIn(st,d) && !(st.heads[d]>0));
+  if(blank.length) return "needs headcount";
+  if(!(st.money && st.money.price>0)) return "no price set";
+  return "";
+}
+function weekRow(st){
+  return {key: st.weekStart, label: st.dateLabel || autoLabel(st.weekStart),
+          needs: weekNeeds(st), updatedAt: new Date().toISOString()};
+}
+function sortWeeks(){ WEEKS.sort((a,b)=> a.key<b.key ? -1 : a.key>b.key ? 1 : 0); }
+function saveOpenWeek(){
+  const row = weekRow(state);
+  if(!save(WEEK_KEY(row.key), state)) return false;
+  const i = WEEKS.findIndex(w=>w.key===row.key);
+  if(i>=0) WEEKS[i]=row; else WEEKS.push(row);
+  sortWeeks();
+  save(K.weeks, WEEKS);
+  return true;
+}
+/* First run after this update: whatever is in the builder becomes week one.
+   The old keys are left exactly where they are, so this costs nothing at all
+   if it turns out to be wrong. */
+function migrateWeeks(){ if(!WEEKS.length) saveOpenWeek(); }
+
+function loadWeek(key){
+  const raw = load(WEEK_KEY(key), null);
+  return raw && typeof raw==="object" ? normalizeWeek(raw) : null;
+}
+function openWeek(key){
+  if(key === state.weekStart){ closeWeekList(); return; }
+  if(!SAVE_OK){ toast("Saving is failing — not switching weeks until that clears"); return; }
+  if(!saveOpenWeek()){ toast("Could not save this week, so it is staying open"); return; }
+  const w = loadWeek(key);
+  if(!w){ toast("That week could not be opened"); buildWeekList(); return; }
+  state = w;
+  save(K.state, state);
+  refreshWeek();
+  toast("Opened "+(state.dateLabel||state.weekStart));
+}
+/* The Monday after the last week on the list, so six in a row is six clicks. */
+function nextFreeMonday(from){
+  let iso = from || toISO(nextMonday(new Date()));
+  while(WEEKS.some(w=>w.key===iso)) iso = toISO(addDays(parseISO(iso), 7));
+  return iso;
+}
+function newWeek(){
+  let iso = toISO(nextMonday(new Date()));
+  if(WEEKS.length){
+    const after = toISO(addDays(parseISO(WEEKS[WEEKS.length-1].key), 7));
+    if(after > iso) iso = after;
+  }
+  iso = nextFreeMonday(iso);
+  if(!saveOpenWeek()){ toast("Could not save this week, so it is staying open"); return; }
+  state = blankWeek(iso);
+  save(K.state, state); saveOpenWeek(); refreshWeek();
+  toast("New week: "+state.dateLabel);
+}
+function duplicateWeek(){
+  const iso = nextFreeMonday(toISO(addDays(parseISO(state.weekStart), 7)));
+  if(!saveOpenWeek()){ toast("Could not save this week, so it is staying open"); return; }
+  const copy = normalizeWeek(JSON.parse(JSON.stringify(state)));
+  copy.weekStart = iso; copy.dateLabel = autoLabel(iso);
+  /* A copy is a plan, never a record of what got served. */
+  copy.actual = {mode: (state.actual && state.actual.mode) || "left"};
+  ensureActuals(copy);
+  state = copy;
+  save(K.state, state); saveOpenWeek(); refreshWeek();
+  toast("Copied to "+state.dateLabel);
+}
+function nearestWeekTo(key){
+  if(!WEEKS.length) return null;
+  const t = parseISO(key).getTime();
+  let best=null, gap=Infinity;
+  WEEKS.forEach(w=>{ const g=Math.abs(parseISO(w.key).getTime()-t); if(g<gap){ gap=g; best=w.key; } });
+  return best;
+}
+function removeWeek(key){
+  const row = WEEKS.find(w=>w.key===key); if(!row) return;
+  const w = loadWeek(key);
+  let dishes = 0;
+  if(w) DAYS.forEach(d=>{ if(w.days[d]) dishes += w.days[d].slots.filter(s=>s.t).length; });
+  if(!confirm("Delete "+(row.label||row.key)+"?\n\n"
+    + (dishes ? "It holds "+dishes+" dish"+(dishes===1?"":"es")+", its headcount and its numbers.\n" : "")
+    + "This cannot be undone from inside the app.")) return;
+  try{ localStorage.removeItem(WEEK_KEY(key)); }catch(e){}
+  WEEKS = WEEKS.filter(x=>x.key!==key);
+  save(K.weeks, WEEKS);
+  if(key === state.weekStart){
+    const near = nearestWeekTo(key);
+    state = (near && loadWeek(near)) || blankWeek(nextFreeMonday());
+    save(K.state, state); saveOpenWeek(); refreshWeek();
+  } else buildWeekList();
+  toast("Deleted "+(row.label||row.key));
+}
+/* Changing the date of the week you are ON renames it — same week, different
+   Monday.  Starting a fresh one is what New week is for. */
+function renameWeek(oldKey, newKey){
+  if(oldKey === newKey) return true;
+  const clash = WEEKS.find(w=>w.key===newKey && w.key!==oldKey);
+  if(clash){
+    if(confirm((clash.label||newKey)+" already exists.\n\n"
+      + "OK      — open that week instead\n"
+      + "Cancel  — leave this week on "+(oldKey))) openWeek(newKey);
+    return false;
+  }
+  state.weekStart = newKey; state.dateLabel = autoLabel(newKey);
+  if(!saveOpenWeek()) return false;
+  try{ localStorage.removeItem(WEEK_KEY(oldKey)); }catch(e){}
+  WEEKS = WEEKS.filter(x=>x.key!==oldKey);
+  save(K.weeks, WEEKS);
+  return true;
+}
+/* Everything on screen that reads the open week. */
+function refreshWeek(){
+  wire(); buildGrid(); buildCostList(); buildHeadGrid(); buildRateGrid();
+  wireMoney(); wireActuals();
+  if(typeof buildKpis==="function") buildKpis();
+  buildPreflight(); syncSatFields(); render(); buildWeekList();
+}
+
 
 /* Fold in any dishes added to the built-in library since this browser's copy
    was saved.  Runs once per LIB_BASE_VERSION. */
@@ -2028,10 +2264,6 @@ if(LIB_SAVED && (state.libVersion||1) < LIB_BASE_VERSION){
   state.libVersion = LIB_BASE_VERSION;
 }
 
-if(!state.dateLabel) state.dateLabel = autoLabel(state.weekStart);
-[1,2,3].forEach(i=>{ const e=DESC[state.sat["m"+i]];
-  if(e){ if(!state.sat["d"+i]) state.sat["d"+i]=e[0]; if(!state.sat["a"+i]) state.sat["a"+i]=e[1]; } });
-
 const SLOT_KIND  = TENANT.week.slots.map(s=>s.kind);
 const SLOT_LABEL = TENANT.week.slots.map(s=>s.label);
 
@@ -2040,6 +2272,29 @@ function recentlyUsed(weeks){
   const cut = HIST.slice(-Math.max(0,weeks));
   const set = new Set();
   cut.forEach(h=>Object.values(h.days).forEach(arr=>arr.forEach(v=>{ if(v) set.add(v.trim().toUpperCase()); })));
+  plannedUsed(weeks).forEach(v=>set.add(v));
+  return set;
+}
+/* Weeks he has planned but not served yet.  Building six weeks in a sitting
+   should not hand him the same lasagna twice, and history cannot know about a
+   week that has not happened.  Only weeks inside the cooldown window count,
+   either side of the one open — a week three months out is not a repeat. */
+function plannedUsed(weeks){
+  const set = new Set();
+  if(!(weeks>0) || !WEEKS.length) return set;
+  const t0 = parseISO(state.weekStart).getTime();
+  const span = weeks*7*24*3600*1000;
+  WEEKS.forEach(w=>{
+    if(w.key === state.weekStart) return;
+    if(Math.abs(parseISO(w.key).getTime() - t0) > span) return;
+    const st = load(WEEK_KEY(w.key), null);
+    if(!st || !st.days) return;
+    DAYS.forEach(d=>{
+      const day = st.days[d]; if(!day || !day.slots) return;
+      day.slots.forEach(s=>{ if(s && s.t) set.add(String(s.t).trim().toUpperCase()); });
+    });
+    if(st.sat) [1,2,3].forEach(i=>{ const v=st.sat["m"+i]; if(v) set.add(String(v).trim().toUpperCase()); });
+  });
   return set;
 }
 /* ---- pork ----
@@ -2521,6 +2776,72 @@ function buildGrid(){
   });
 }
 function syncUI(){ buildGrid(); buildCostList(); }
+
+/* ---- the week bar ----
+   Every week he has planned, and the first thing each one is still missing —
+   which is the whole point of it.  Knowing which of six weeks still has no
+   headcount is not something anyone should have to hold in their head. */
+function closeWeekList(){
+  const l=document.getElementById("wbList"), b=document.getElementById("weekBar"),
+        t=document.getElementById("wbToggle");
+  if(l) l.hidden=true; if(b) b.classList.remove("open");
+  if(t) t.setAttribute("aria-expanded","false");
+}
+function toggleWeekList(){
+  const l=document.getElementById("wbList"); if(!l) return;
+  if(l.hidden){ buildWeekList(); l.hidden=false;
+    document.getElementById("weekBar").classList.add("open");
+    document.getElementById("wbToggle").setAttribute("aria-expanded","true");
+  } else closeWeekList();
+}
+let SAVED_TIMER=null;
+function flashSaved(){
+  const e=document.getElementById("wbSaved"); if(!e) return;
+  e.classList.add("show");
+  clearTimeout(SAVED_TIMER);
+  SAVED_TIMER=setTimeout(()=>e.classList.remove("show"), 1300);
+}
+let WEEKLIST_TIMER=null;
+function queueWeekList(){
+  clearTimeout(WEEKLIST_TIMER);
+  WEEKLIST_TIMER=setTimeout(buildWeekList, 400);   /* not on every keystroke */
+}
+function buildWeekList(){
+  const bar=document.getElementById("weekBar"); if(!bar) return;
+  const now=document.getElementById("wbNow"), cnt=document.getElementById("wbCount"),
+        need=document.getElementById("wbNeed"), list=document.getElementById("wbList");
+  now.textContent = state.dateLabel || autoLabel(state.weekStart);
+  cnt.textContent = WEEKS.length + (WEEKS.length===1 ? " week" : " weeks");
+  const mine = weekNeeds(state);
+  need.textContent = mine || "complete";
+  need.classList.toggle("ok", !mine);
+
+  list.innerHTML="";
+  if(!WEEKS.length) list.appendChild(el("div","taempty","No weeks saved yet."));
+  WEEKS.forEach(w=>{
+    const isOpen = w.key===state.weekStart;
+    const needs  = isOpen ? mine : (w.needs||"");
+    const row=el("div","wbrow"+(isOpen?" on":""));
+    const go=el("button","wbgo",
+      '<span class="wbdot"></span><span class="wbname">'+esc(w.label||w.key)+"</span>"
+      + '<span class="wbneed2'+(needs?"":" ok")+'">'+esc(needs||"complete")+"</span>");
+    go.onclick=()=>{ openWeek(w.key); closeWeekList(); };
+    const del=el("button","wbx","&times;");
+    del.title="Delete "+(w.label||w.key);
+    del.onclick=()=>removeWeek(w.key);
+    row.appendChild(go); row.appendChild(del); list.appendChild(row);
+  });
+
+  document.getElementById("wbToggle").onclick=toggleWeekList;
+  document.getElementById("wbNew").onclick=()=>{ closeWeekList(); newWeek(); };
+  document.getElementById("wbDup").onclick=()=>{ closeWeekList(); duplicateWeek(); };
+  document.getElementById("wbDel").onclick=()=>{ closeWeekList(); removeWeek(state.weekStart); };
+}
+/* Click anywhere else and the list gets out of the way. */
+document.addEventListener("mousedown", e=>{
+  const bar=document.getElementById("weekBar");
+  if(bar && !bar.contains(e.target)) closeWeekList();
+});
 
 /* ---- cost per serving, all of this week's dishes in one place ----
    The boxes already exist on each day card, but hunting through five columns
@@ -5846,7 +6167,11 @@ function wireBackup(){
 let toastT;
 function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("show");
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800); }
-function persist(){ save(K.state,state); }
+function persist(){
+  save(K.state,state);
+  saveOpenWeek();          /* the open week is a document now, not just "state" */
+  flashSaved(); queueWeekList();
+}
 
 let VIEW="menu";
 const VIEW_CANVAS = {menu:"cv", sheet:"cv2", daily:"cv3", proj:"cv4", profit:"cv5"};
@@ -5924,20 +6249,16 @@ function wire(){
   const syncChip=()=>{ if(wkChip) wkChip.textContent = state.dateLabel || ""; };
   syncChip();
   ws.onchange=()=>{
-    const prevWeek=state.weekStart, prevLabel=state.dateLabel;
-    /* Moving to a different week used to leave last week's leftovers and
-       headcount sitting there, silently applying to the new one. */
-    if(ws.value!==prevWeek && PROJ_DAYS.some(d=>anyActuals(d))){
-      const served = PROJ_DAYS.filter(d=>actualPeople(d)!=null).length;
-      const ok = confirm(
-        "You have what actually got served recorded for "+(prevLabel||prevWeek)
-        + (served ? "  ("+served+" day"+(served===1?"":"s")+")" : "") + ".\n\n"
-        + "OK      — save that week to history and start the new one empty\n"
-        + "Cancel  — leave those numbers on screen (they will count as the new week's)");
-      if(ok){ saveToHistory(prevWeek, prevLabel); clearWeekActuals(); }
-    }
-    state.weekStart=ws.value; state.dateLabel=autoLabel(ws.value); dl.value=state.dateLabel;
-    syncChip(); render(); persist(); };
+    const prevWeek=state.weekStart;
+    if(!ws.value){ ws.value=prevWeek; return; }
+    /* The date is the week's identity now, so changing it MOVES this week to a
+       different Monday, carrying its dishes and numbers with it.  Starting a
+       fresh one is what New week is for, and a Monday another week already
+       holds is refused rather than quietly merged. */
+    if(!renameWeek(prevWeek, ws.value)){ ws.value=state.weekStart; dl.value=state.dateLabel;
+      syncChip(); buildWeekList(); return; }
+    dl.value=state.dateLabel;
+    syncChip(); render(); persist(); buildWeekList(); };
   dl.oninput=()=>{ state.dateLabel=dl.value.toUpperCase(); dl.value=state.dateLabel;
     syncChip(); render(); persist(); };
 
@@ -6719,7 +7040,8 @@ function init(){
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
   buildDishIndex();
-  wire(); buildGrid(); buildCostList(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); wireSaveAlert(); wireOfflineChip(); registerOffline();
+  migrateWeeks();
+  wire(); buildGrid(); buildCostList(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); buildWeekList(); wireSaveAlert(); wireOfflineChip(); registerOffline();
   wirePhotos();
   wireImport();
   /* the photo count on each card needs the index, which only IndexedDB can

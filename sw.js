@@ -12,7 +12,7 @@
  * path again rather than trusting that.
  */
 const CACHE_PREFIX = "menugen-";
-const VERSION = CACHE_PREFIX + "2026-09-14b";
+const VERSION = CACHE_PREFIX + "2026-09-14c";
 const CORE = ["./", "./index.html", "./manifest.webmanifest",
               "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 const SCOPE_PATH = new URL("./", self.location).pathname;
