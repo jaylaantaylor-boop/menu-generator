@@ -94,6 +94,34 @@ button.go:hover{filter:brightness(1.1)}
 .slot textarea.desc{color:#454545;font-weight:400;text-transform:none;font-style:italic;font-size:11.5px;min-height:34px}
 .slot input.allerg{width:100%;border:1px solid #d8d8de;border-radius:7px;padding:4px 7px;font-size:10.5px;font-weight:800;letter-spacing:.3px;color:#111}
 .slot input.allerg::placeholder{font-weight:500;color:#a0a0aa;letter-spacing:0}
+/* ---- dish type-ahead ---- */
+.tabox{position:relative}
+.talist{position:absolute;left:0;right:0;top:100%;z-index:60;margin-top:3px;background:#fff;
+  border:1px solid #c9c9d2;border-radius:9px;box-shadow:0 10px 26px rgba(0,0,0,.16);
+  max-height:296px;overflow:auto;overscroll-behavior:contain;padding:4px}
+.talist[hidden]{display:none}
+.tarow{display:block;width:100%;text-align:left;border:0;background:none;border-radius:7px;
+  padding:7px 8px;min-height:44px;cursor:pointer;font-weight:400}
+.tarow:hover{background:#f2f5fb}
+.tarow.on{background:#e7efff;box-shadow:inset 0 0 0 1px #b6cdf5}
+.tarow .tn{display:block;font-size:12px;font-weight:800;color:var(--red);letter-spacing:.2px;line-height:1.25}
+.tarow .tn b{background:#ffe9a8;color:inherit;border-radius:3px;padding:0 1px}
+.tarow .td{display:block;font-size:11px;color:#555;font-style:italic;margin-top:2px;line-height:1.3}
+.tarow .ta{display:block;font-size:9.5px;font-weight:800;color:#8a8a94;letter-spacing:.35px;margin-top:3px}
+.tarow .tg{display:inline-block;font-size:8.5px;font-weight:800;letter-spacing:.5px;color:#6b6b76;
+  background:#eeeef2;border-radius:4px;padding:1px 5px;margin:3px 4px 0 0;vertical-align:middle}
+.tarow .tg.new{background:#ffe9a8;color:#7a5a00}
+.taempty{padding:10px 9px;font-size:11.5px;color:var(--muted)}
+.didyou{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;color:#7a5a00;
+  background:#fff8e6;border:1px solid #ecd9a8;border-radius:7px;padding:4px 6px;margin-top:3px}
+.didyou[hidden]{display:none}
+.didyou .fix{border:0;background:none;padding:0;font-size:11px;font-weight:800;color:var(--red);
+  text-decoration:underline;cursor:pointer;text-align:left}
+.didyou .x{margin-left:auto;border:0;background:none;padding:0 2px;color:#9a8a60;font-size:13px;line-height:1}
+/* ---- Saturday roll ---- */
+.satlab{display:flex;align-items:center;gap:6px;justify-content:space-between}
+.satlab button{padding:1px 6px;font-size:12px;line-height:1.5;border-radius:5px;background:#f3f3f6}
+.satlab button:disabled{opacity:.4;cursor:not-allowed}
 .rate{display:flex;flex-direction:column;gap:4px;margin-top:2px}
 .stars{display:flex;align-items:center;gap:1px}
 .stars .st{border:0;background:none;padding:0 1px;font-size:15px;line-height:1;color:#d3d3d9;cursor:pointer}
@@ -518,12 +546,12 @@ textarea.txt{width:100%;min-height:200px;font-family:ui-monospace,SFMono-Regular
     <summary>Saturday strip</summary>
     <div class="body">
       <div class="bar" style="margin-top:12px">
-        <label class="f" style="flex:1">#1 Main<input type="text" id="sat1" style="width:100%"><input type="text" id="satd1" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata1" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc1" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
-        <label class="f" style="flex:1">#2 Vegan main &amp; vegetarian side<input type="text" id="sat2" style="width:100%"><input type="text" id="satd2" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata2" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc2" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
-        <label class="f" style="flex:1">#3 Salad<input type="text" id="sat3" style="width:100%"><input type="text" id="satd3" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata3" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc3" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
-        <label class="f"><span>&nbsp;</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button id="satPhoto1" title="Photos of the #1 main">📷 #1</button><button id="satPhoto2" title="Photos of the vegan main">📷 #2</button><button id="satPhoto3" title="Photos of the salad">📷 #3</button></div><label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;margin-top:6px"><input type="checkbox" id="satClosed"> Closed</label></label>
+        <label class="f" style="flex:1"><span class="satlab">#1 Main<button id="satRoll1" title="Swap just this one for something else">🎲</button></span><input type="text" id="sat1" style="width:100%"><input type="text" id="satd1" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata1" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc1" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
+        <label class="f" style="flex:1"><span class="satlab">#2 Vegan main &amp; vegetarian side<button id="satRoll2" title="Swap just this one for something else">🎲</button></span><input type="text" id="sat2" style="width:100%"><input type="text" id="satd2" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata2" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc2" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
+        <label class="f" style="flex:1"><span class="satlab">#3 Salad<button id="satRoll3" title="Swap just this one for something else">🎲</button></span><input type="text" id="sat3" style="width:100%"><input type="text" id="satd3" placeholder="What's in it" style="width:100%;margin-top:4px"><input type="text" id="sata3" placeholder="Allergens (or NONE)" style="width:100%;margin-top:4px"><input type="number" id="satc3" min="0" step="0.05" placeholder="$ per serving" style="width:100%;margin-top:4px"></label>
+        <label class="f"><span>&nbsp;</span><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button id="satPhoto1" title="Photos of the #1 main">📷 #1</button><button id="satPhoto2" title="Photos of the vegan main">📷 #2</button><button id="satPhoto3" title="Photos of the salad">📷 #3</button></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px"><button id="satRollAll" title="Swap all three for something else">🎲 Roll all three</button></div><label style="display:flex;gap:5px;align-items:center;font-size:12px;text-transform:none;letter-spacing:0;margin-top:6px"><input type="checkbox" id="satClosed"> Closed</label></label>
       </div>
-      <p class="note">This strip rarely changes, so it is not part of the weekly re-roll. Edit it here when it does.</p>
+      <p class="note">This strip rarely changes, so it is not part of the weekly re-roll &mdash; generating the week leaves it alone. Edit it here when it does, or roll it yourself with the dice. A roll pulls from every day&rsquo;s list, because Saturday has no theme of its own.</p>
     </div>
   </details>
 
@@ -2124,6 +2152,263 @@ function generate(onlyDay, onlySlot){
   syncUI(); render(); persist();
 }
 
+
+/* ================= dish type-ahead =================
+   Picking a dish used to mean scrolling to the library at the bottom of the
+   page, reading it, copying the name and pasting it back up here — and a paste
+   that was a word off matched nothing, so the description and the allergens
+   stayed blank.  Three pieces fix that end of it:
+
+     buildDishIndex()   one flat, de-duplicated list of every dish in LIB,
+                        remembering which day and which kind of slot it came from
+     searchDishes()     what you typed against that list, best fit first
+     attachDishAutocomplete(el, opts)   hangs the suggestion list under any name
+                        box, and offers a one-click fix for a near miss
+
+   Nothing here writes to LIB.  Picking a suggestion fills the name, the
+   description and the allergens together, which is the whole point. */
+const KIND_SHORT = {mains:"MAIN", vegan:"VEGAN", salads:"SALAD"};
+let DISH_INDEX = [];
+function buildDishIndex(){
+  const byName = new Map();
+  DAYS.forEach(d=>["mains","vegan","salads"].forEach(kind=>{
+    ((LIB[d]||{})[kind] || []).forEach(o=>{
+      const key = String(o.n||"").trim().toUpperCase(); if(!key) return;
+      let e = byName.get(key);
+      if(!e){ e = {n:key, d:o.d||"", a:o.a||"", x:!!o.x, where:[]}; byName.set(key,e); }
+      if(!e.d && o.d) e.d = o.d;          /* the fullest copy of a dish wins */
+      if(!e.a && o.a) e.a = o.a;
+      if(!o.x) e.x = false;               /* served somewhere means it is not a new idea */
+      e.where.push({day:d, kind:kind});
+    });
+  }));
+  DISH_INDEX = Array.from(byName.values());
+  DISH_INDEX.forEach(e=>{
+    e.hay   = (e.n+" "+e.d+" "+e.a).toUpperCase();
+    e.words = splitWords(e.n);
+    e.key   = keyWords(e.n);
+  });
+  DISH_INDEX.sort((a,b)=>a.n.localeCompare(b.n));
+  return DISH_INDEX.length;
+}
+function splitWords(s){ return String(s||"").toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean); }
+/* Words that carry no meaning in a dish name, so that "baked ziti meatballs"
+   and "BAKED ZITI WITH MEATBALLS" count as the same thing. */
+const STOP = new Set(["WITH","AND","OF","THE","A","ON","IN","SIDE","OUR","SERVED","PLUS","HALF","FOR"]);
+function keyWords(s){ return splitWords(s).filter(w=>!STOP.has(w)); }
+
+/* ---- what you typed against the list ---- */
+function scoreDish(e, qWords, qRaw, kind, day){
+  let s = 0;
+  for(let i=0;i<qWords.length;i++){
+    const w = qWords[i];
+    if(e.n.indexOf(w)===0)                     s += 120;   /* the name starts with it */
+    else if(e.words.some(x=>x.indexOf(w)===0)) s += 80;    /* a word starts with it */
+    else if(e.n.indexOf(w)>=0)                 s += 45;    /* somewhere in the name */
+    else if(e.hay.indexOf(w)>=0)               s += 16;    /* in the description or allergens */
+    else return -1;                                        /* every word has to land somewhere */
+  }
+  if(e.n === qRaw)               s += 500;
+  else if(e.n.indexOf(qRaw)===0) s += 200;
+  /* the dishes that belong in this box come first, but nothing is hidden */
+  if(e.where.some(w=>w.kind===kind))                s += 70;
+  if(e.where.some(w=>w.kind===kind && w.day===day)) s += 45;
+  s -= Math.min(28, e.n.length/4);               /* a tight match beats a long one */
+  return s;
+}
+function searchDishes(q, kind, day, limit){
+  const qRaw = String(q||"").trim().toUpperCase();
+  if(!qRaw) return [];
+  const qWords = splitWords(qRaw);
+  if(!qWords.length) return [];
+  const out = [];
+  DISH_INDEX.forEach(e=>{ const sc = scoreDish(e,qWords,qRaw,kind,day); if(sc>=0) out.push({e:e,s:sc}); });
+  out.sort((a,b)=> b.s-a.s || a.e.n.localeCompare(b.e.n));
+  return out.slice(0, limit||8).map(o=>o.e);
+}
+
+/* ---- near miss: close enough that he plainly meant a real dish ---- */
+function nearWord(a,b){                 /* one typo apart, for words long enough to judge */
+  if(a===b) return true;
+  if(a.length<5 || b.length<5) return false;
+  if(Math.abs(a.length-b.length)>1) return false;
+  let i=0,j=0,slip=0;
+  while(i<a.length && j<b.length){
+    if(a[i]===b[j]){ i++; j++; continue; }
+    if(++slip>1) return false;
+    if(a.length>b.length) i++; else if(b.length>a.length) j++; else { i++; j++; }
+  }
+  return true;
+}
+function nearestDish(text){
+  const q = keyWords(text); if(!q.length) return null;
+  let best=null, bestScore=0;
+  DISH_INDEX.forEach(e=>{
+    const w = e.key; if(!w.length) return;
+    let hit = 0;
+    q.forEach(x=>{ if(w.some(y=>nearWord(x,y))) hit++; });
+    const cover = hit/q.length;                /* how much of what he typed is real */
+    if(cover < 0.8) return;                    /* a stray word means he meant something else */
+    const tight = hit/w.length;                /* how much of the dish he actually typed */
+    const sc = cover*0.65 + tight*0.35;
+    if(sc > bestScore){ bestScore = sc; best = e; }
+  });
+  return bestScore >= 0.62 ? best : null;
+}
+function isKnownDish(text){
+  const k = String(text||"").trim().toUpperCase();
+  return !!k && DISH_INDEX.some(e=>e.n===k);
+}
+
+/* ---- the dropdown ---- */
+function markHits(name, qWords){
+  const esc = t=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  let out = "", rest = name, guard = 0;
+  while(rest && guard++ < 40){
+    let at = -1, len = 0;
+    qWords.forEach(w=>{ const i = rest.indexOf(w); if(i>=0 && (at<0 || i<at)){ at=i; len=w.length; } });
+    if(at<0) break;
+    out += esc(rest.slice(0,at)) + "<b>" + esc(rest.substr(at,len)) + "</b>";
+    rest = rest.slice(at+len);
+  }
+  return out + esc(rest);
+}
+function attachDishAutocomplete(input, opts){
+  opts = opts || {};
+  const box = el("div","tabox");
+  input.parentNode.insertBefore(box, input); box.appendChild(input);
+  const list = el("div","talist"); list.hidden = true; box.appendChild(list);
+  const tell = el("div","didyou"); tell.hidden = true;
+  box.parentNode.insertBefore(tell, box.nextSibling);
+
+  let hits = [], at = -1, open = false;
+  const kind = ()=> typeof opts.kind==="function" ? opts.kind() : opts.kind;
+  const day  = ()=> typeof opts.day ==="function" ? opts.day()  : opts.day;
+
+  function close(){ open=false; at=-1; list.hidden=true; }
+  function draw(){
+    list.innerHTML = "";
+    if(!hits.length) list.appendChild(el("div","taempty",
+      "No dish matches that &mdash; type it out and it stays exactly as you wrote it."));
+    const qWords = splitWords(input.value);
+    const hereK = kind(), hereD = day();
+    hits.forEach((e,i)=>{
+      const r = el("button","tarow"+(i===at?" on":""));
+      let html = '<span class="tn">'+markHits(e.n, qWords)+"</span>";
+      if(e.d) html += '<span class="td">'+e.d.replace(/&/g,"&amp;").replace(/</g,"&lt;")+"</span>";
+      if(e.a) html += '<span class="ta">'+(e.a.toUpperCase()==="NONE"
+              ? "No common allergens" : "Contains: "+e.a)+"</span>";
+      /* where it normally lives, but only when that is not this very box */
+      if(!e.where.some(w=>w.kind===hereK && w.day===hereD)){
+        const w = e.where[0];
+        if(w) html += '<span class="tg">'+DAYNAME[w.day]+" &middot; "+KIND_SHORT[w.kind]+"</span>";
+      }
+      if(e.x) html += '<span class="tg new">NEW IDEA</span>';
+      r.innerHTML = html;
+      r.onmousedown = ev=>ev.preventDefault();   /* keep focus, so blur cannot beat the click */
+      r.onclick = ()=>choose(e);
+      list.appendChild(r);
+    });
+    list.scrollTop = 0; list.hidden = false; open = true;
+  }
+  function refresh(){
+    const q = input.value.trim();
+    if(q.length < 2){ close(); return; }
+    hits = searchDishes(q, kind(), day(), 8);
+    at = hits.length ? 0 : -1;
+    draw();
+  }
+  function choose(e){
+    input.value = e.n;
+    close(); tell.hidden = true;
+    input.focus();
+    if(opts.onPick) opts.onPick(e);
+  }
+  function offer(){
+    if(isKnownDish(input.value)){ tell.hidden = true; return; }
+    const e = input.value.trim() ? nearestDish(input.value) : null;
+    if(!e){ tell.hidden = true; return; }
+    tell.innerHTML = "";
+    const b = el("button","fix","Did you mean "+e.n+"?");
+    b.onclick = ()=>choose(e);
+    const x = el("button","x","&times;"); x.title = "No, leave it as I typed it";
+    x.onclick = ()=>{ tell.hidden = true; };
+    tell.appendChild(b); tell.appendChild(x); tell.hidden = false;
+  }
+
+  input.setAttribute("autocomplete","off");
+  input.addEventListener("input", ()=>{ tell.hidden = true; refresh(); });
+  input.addEventListener("focus", ()=>{ if(input.value.trim().length>=2) refresh(); });
+  input.addEventListener("blur",  ()=>{ setTimeout(()=>{ close(); offer(); }, 120); });
+  input.addEventListener("keydown", ev=>{
+    if(!open){
+      if(ev.key==="ArrowDown" && input.value.trim().length>=2){ refresh(); ev.preventDefault(); }
+      return;
+    }
+    if(ev.key==="ArrowDown"){ at = Math.min(hits.length-1, at+1); draw(); ev.preventDefault(); }
+    else if(ev.key==="ArrowUp"){ at = Math.max(0, at-1); draw(); ev.preventDefault(); }
+    else if(ev.key==="Enter" || ev.key==="Tab"){ if(at>=0 && hits[at]){ choose(hits[at]); ev.preventDefault(); } }
+    else if(ev.key==="Escape"){ close(); ev.preventDefault(); }
+  });
+  return {refresh:refresh, close:close};
+}
+
+/* ================= Saturday's own roll =================
+   Saturday is a fixed strip rather than a generated day, so it has no list of
+   its own and the weekly generate leaves it alone.  A roll here pulls from
+   every day's list for the right kind of dish — Saturday has no theme to keep
+   to — while honouring the same New ideas % and no-repeat weeks as the rest. */
+const SAT_KIND = {1:"mains", 2:"vegan", 3:"salads"};
+function satPool(kind){
+  const out = [], seen = new Set();
+  DAYS.forEach(d=>((LIB[d]||{})[kind] || []).forEach(o=>{
+    const k = String(o.n||"").trim().toUpperCase();
+    if(!k || seen.has(k)) return;
+    seen.add(k); out.push(o);
+  }));
+  return out;
+}
+function rollSat(i){
+  if(state.sat.closed) return;
+  const newPct = +document.getElementById("newPct").value;
+  const avoid  = recentlyUsed(+document.getElementById("cooldown").value);
+  /* past Saturdays count too — recentlyUsed only reads the weekdays */
+  HIST.slice(-Math.max(0,+document.getElementById("cooldown").value))
+      .forEach(h=>(h.sat||[]).forEach(v=>{ if(v) avoid.add(v.trim().toUpperCase()); }));
+  DAYS.forEach(d=>state.days[d].slots.forEach(s=>{ if(s.t) avoid.add(s.t.trim().toUpperCase()); }));
+  [1,2,3].forEach(k=>{ if(k!==i && state.sat["m"+k]) avoid.add(state.sat["m"+k].trim().toUpperCase()); });
+
+  const pool = satPool(SAT_KIND[i]);
+  if(!pool.length){ toast("Nothing in the library for that slot"); return; }
+  const free = pool.filter(o=>!avoid.has(o.n.toUpperCase()));
+  const usable = free.length ? free : pool;      /* a menu beats a perfect no-repeat */
+  const news = usable.filter(o=>o.x), olds = usable.filter(o=>!o.x);
+  const wantNew = Math.random()*100 < newPct;
+  let bucket = wantNew ? (news.length?news:olds) : (olds.length?olds:news);
+  if(!bucket.length) bucket = usable;
+  const o = bucket[Math.floor(Math.random()*bucket.length)];
+  const look = DESC[o.n];
+  state.sat["m"+i] = o.n;
+  state.sat["d"+i] = o.d || (look ? look[0] : "");
+  state.sat["a"+i] = o.a || (look ? look[1] : "");
+  syncSatFields(); render(); persist();
+}
+/* Push state.sat back into the boxes — the roll changes them behind the field. */
+function syncSatFields(){
+  [1,2,3].forEach(i=>{
+    const nm=document.getElementById("sat"+i), de=document.getElementById("satd"+i),
+          ag=document.getElementById("sata"+i), cs=document.getElementById("satc"+i);
+    if(nm) nm.value = state.sat["m"+i]||"";
+    if(de) de.value = state.sat["d"+i]||"";
+    if(ag) ag.value = state.sat["a"+i]||"";
+    if(cs){ const c0 = metaFor(state.sat["m"+i]).c; cs.value = c0 ? c0 : ""; }
+    const rb=document.getElementById("satRoll"+i);
+    if(rb) rb.disabled = !!state.sat.closed;
+  });
+  const all=document.getElementById("satRollAll");
+  if(all) all.disabled = !!state.sat.closed;
+}
+
 /* ================= UI ================= */
 function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
 function buildGrid(){
@@ -2144,9 +2429,10 @@ function buildGrid(){
       const rr=el("button",null,"🎲"); rr.title="Swap just this item";
       rr.onclick=()=>{ const was=s.lock; s.lock=false; generate(d,i); s.lock=was; };
       const ph=el("button","pbtn","📷");
-      const pc=photoCount(s.t);
-      ph.title = pc ? pc+" photo"+(pc===1?"":"s")+" of this dish" : "Photos of this dish";
-      if(pc) ph.appendChild(el("span","cnt",String(pc)));
+      const syncPhoto=()=>{ const pc=photoCount(s.t);
+        ph.innerHTML="📷"; if(pc) ph.appendChild(el("span","cnt",String(pc)));
+        ph.title = pc ? pc+" photo"+(pc===1?"":"s")+" of this dish" : "Photos of this dish"; };
+      syncPhoto();
       ph.onclick=()=>openPhotos(s.t);
       btns.appendChild(lk); btns.appendChild(rr); btns.appendChild(ph); lab.appendChild(btns);
       const ta=el("textarea"); ta.value=s.t; ta.rows=2;
@@ -2193,6 +2479,14 @@ function buildGrid(){
 
       wrap.appendChild(lab); wrap.appendChild(ta); wrap.appendChild(de); wrap.appendChild(ag);
       wrap.appendChild(rate);
+      /* Type a couple of letters and the library comes to the box, instead of
+         scrolling to the bottom of the page to copy a name out of it. */
+      attachDishAutocomplete(ta, {kind:SLOT_KIND[i], day:d, onPick:o=>{
+        s.t=o.n; s.d=o.d||""; s.a=o.a||""; s.isNew=false;
+        de.value=s.d; ag.value=s.a;
+        drawStars(); syncCost(); syncPhoto();
+        render(); persist();
+      }});
       slots.appendChild(wrap);
     });
     card.appendChild(slots);
@@ -3421,6 +3715,7 @@ function libMatch(o){
   return ((o.n||"")+" "+(o.d||"")+" "+(o.a||"")).toUpperCase().includes(LIB_Q);
 }
 function buildLib(){
+  buildDishIndex();            /* the type-ahead reads this list, so it moves with it */
   const g=document.getElementById("libGrid"); if(!g) return; g.innerHTML="";
   let shown=0, total=0;
   DAYS.forEach(d=>{
@@ -5701,12 +5996,27 @@ function wire(){
     nm.addEventListener("input", syncSatCost);
     const pb=document.getElementById("satPhoto"+i);
     if(pb) pb.onclick=()=>openPhotos(state.sat["m"+i]);
+    /* The dice sits inside the label, so the click has to be stopped from
+       falling through and focusing the box behind it. */
+    const rb=document.getElementById("satRoll"+i);
+    if(rb) rb.onclick=ev=>{ ev.preventDefault(); rollSat(i); };
+    /* day:"sat" on purpose — Saturday keeps to no theme, so nothing gets a
+       day bonus and every suggestion is tagged with where it normally lives. */
+    attachDishAutocomplete(nm, {kind:SAT_KIND[i], day:"sat", onPick:o=>{
+      state.sat["m"+i]=o.n; state.sat["d"+i]=o.d||""; state.sat["a"+i]=o.a||"";
+      de.value=state.sat["d"+i]; ag.value=state.sat["a"+i];
+      syncSatCost(); render(); persist();
+    }});
   });
+  const rollAll=document.getElementById("satRollAll");
+  if(rollAll) rollAll.onclick=()=>{ [1,2,3].forEach(i=>rollSat(i)); toast("Saturday rolled"); };
   document.getElementById("legend").innerHTML =
     "<span>Allergen codes you can use:</span>" +
     TENANT.allergens.map(t=>"<span>"+t+"</span>").join("");
   const sc=document.getElementById("satClosed"); sc.checked=state.sat.closed;
-  sc.onchange=()=>{ state.sat.closed=sc.checked; buildHeadGrid(); buildRateGrid(); render(); persist(); };
+  sc.onchange=()=>{ state.sat.closed=sc.checked; syncSatFields();
+    buildHeadGrid(); buildRateGrid(); render(); persist(); };
+  syncSatFields();
 
   const hAll=document.getElementById("headsAll");
   document.getElementById("headsApply").onclick=()=>{
@@ -6403,6 +6713,7 @@ function init(){
   let pending=2;
   const done=()=>{ if(--pending===0) render(); };
   ["qr","logo"].forEach(k=>{ const im=new Image(); im.onload=done; im.onerror=done; im.src=BAR_SRC[k]; barImgs[k]=im; });
+  buildDishIndex();
   wire(); buildGrid(); buildCostList(); buildHeadGrid(); buildRateGrid(); wireMoney(); wireActuals(); buildTrend(); buildDishes(); buildLib(); wireLibSearch(); buildHist(); wireBackup(); buildPreflight(); render(); wireSaveAlert(); wireOfflineChip(); registerOffline();
   wirePhotos();
   wireImport();
