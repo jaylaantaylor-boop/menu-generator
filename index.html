@@ -2274,6 +2274,10 @@ function markHits(name, qWords){
   return out + esc(rest);
 }
 function attachDishAutocomplete(input, opts){
+  /* wire() runs again on Reuse, so the Saturday boxes come back through here.
+     Without this the box gets wrapped a second time and ends up with two
+     dropdowns and two near-miss lines stacked on it. */
+  if(input.__dishTA) return input.__dishTA;
   opts = opts || {};
   const box = el("div","tabox");
   input.parentNode.insertBefore(box, input); box.appendChild(input);
@@ -2350,7 +2354,8 @@ function attachDishAutocomplete(input, opts){
     else if(ev.key==="Enter" || ev.key==="Tab"){ if(at>=0 && hits[at]){ choose(hits[at]); ev.preventDefault(); } }
     else if(ev.key==="Escape"){ close(); ev.preventDefault(); }
   });
-  return {refresh:refresh, close:close};
+  input.__dishTA = {refresh:refresh, close:close};
+  return input.__dishTA;
 }
 
 /* ================= Saturday's own roll =================
