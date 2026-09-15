@@ -6581,8 +6581,11 @@ function weekSnapshot(){
 }
 
 function saveToHistory(weekOverride, labelOverride){
-  const week  = weekOverride  || state.weekStart;
-  const label = labelOverride || state.dateLabel;
+  /* Only a real date string counts as an override.  Anything else — an event
+     handler passing its click through, say — falls back to the open week
+     rather than being written in as the record's identity. */
+  const week  = (typeof weekOverride==="string"  && weekOverride)  || state.weekStart;
+  const label = (typeof labelOverride==="string" && labelOverride) || state.dateLabel;
   const rec={week, label, days:{}, sat:[state.sat.m1||"", state.sat.m2||"", state.sat.m3||""]};
   DAYS.forEach(d=>rec.days[d]=state.days[d].slots.map(s=>s.t));
   rec.run = weekSnapshot();
@@ -6666,7 +6669,10 @@ function wire(){
   document.querySelectorAll("#viewSeg button").forEach(b=>b.onclick=()=>setView(b.dataset.view));
   document.getElementById("dl").onclick=downloadPNG;
   document.getElementById("dl2").onclick=downloadPNG;
-  document.getElementById("saveHist").onclick=saveToHistory;
+  /* NOT `onclick=saveToHistory` — that hands the click event in as
+     weekOverride, and the saved record ends up with {isTrusted:true} where its
+     date should be.  Two of the real history records were wrecked that way. */
+  document.getElementById("saveHist").onclick=()=>saveToHistory();
   document.getElementById("copyTxt").onclick=()=>{
     navigator.clipboard.writeText(document.getElementById("txtOut").value).then(()=>toast("Copied"));
   };
